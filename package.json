@@ -1,0 +1,19 @@
+{
+  "name": "edgewarn.org",
+  "version": "2025.12.8",
+  "description": "EdgeWARN's web-based GUI interface that connects with EdgeWARN-Core",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ewsofficial/EdgeWARN-Website.git"
+  },
+  "author": "Edgemont Weather Service",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ewsofficial/EdgeWARN-Website/issues"
+  },
+  "homepage": "https://github.com/ewsofficial/EdgeWARN-Website#readme"
+}
