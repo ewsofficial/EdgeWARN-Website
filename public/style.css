@@ -244,3 +244,32 @@ body {
     font-size: 1.1rem;
   }
 }
+
+#lightning-container {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.lightning-flash {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.8) 0%, rgba(200, 230, 255, 0.4) 40%, transparent 70%);
+  mix-blend-mode: screen;
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.lightning-bolt {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0;
+  filter: drop-shadow(0 0 8px rgba(200, 230, 255, 0.8));
+}
