@@ -4,6 +4,8 @@
   "description": "EdgeWARN's web-based GUI interface that connects with EdgeWARN-Core",
   "main": "index.js",
   "scripts": {
+    "start": "node server.js",
+    "dev": "NODE_ENV=development node server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -16,4 +18,8 @@
     "url": "https://github.com/ewsofficial/EdgeWARN-Website/issues"
   },
   "homepage": "https://github.com/ewsofficial/EdgeWARN-Website#readme"
+  ,
+  "dependencies": {
+    "express": "^4.18.2"
+  }
 }
