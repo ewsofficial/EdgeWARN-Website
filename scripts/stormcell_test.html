@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stormcell Viewer Test</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        html, body { height: 100%; margin: 0; padding: 0; }
+        #map { height: 100%; width: 100%; }
+        /* Custom scrollbar for webkit */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1f2937; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 h-screen flex overflow-hidden font-sans">
+
+    <!-- Sidebar -->
+    <div class="w-80 flex-shrink-0 flex flex-col border-r border-gray-700 bg-gray-800">
+        <div class="p-4 border-b border-gray-700">
+            <h1 class="text-xl font-bold mb-4 text-blue-400">Stormcell Test</h1>
+            
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">API Server URL</label>
+                    <input type="text" id="apiUrl" value="http://localhost:3000" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500 transition-colors">
+                </div>
+                <button id="connectBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition-colors text-sm">
+                    Connect & Fetch List
+                </button>
+            </div>
+        </div>
+
+        <!-- List Container -->
+        <div id="fileList" class="flex-1 overflow-y-auto p-2 space-y-1">
+            <div class="text-center text-gray-500 text-sm mt-10">
+                Not connected.
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Map Area -->
+    <div class="flex-1 relative">
+        <div id="map" class="z-0"></div>
+        
+        <!-- Info Overlay -->
+        <div class="absolute top-4 right-4 z-[1000] bg-gray-800/90 backdrop-blur border border-gray-600 rounded p-4 max-w-xs shadow-lg hidden" id="infoPanel">
+            <h3 class="font-bold text-lg mb-2 text-blue-300" id="infoTitle">Selected Cell</h3>
+            <pre id="infoContent" class="text-xs overflow-auto max-h-60 text-gray-300"></pre>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Init Map
+        // Center on US approximately
+        const map = L.map('map').setView([37.8, -96], 4);
+
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+            subdomains: 'abcd',
+            maxZoom: 20
+        }).addTo(map);
+
+        // State
+        let currentLayer = null;
+
+        // Elements
+        const apiUrlInput = document.getElementById('apiUrl');
+        const connectBtn = document.getElementById('connectBtn');
+        const fileList = document.getElementById('fileList');
+        const infoPanel = document.getElementById('infoPanel');
+        const infoContent = document.getElementById('infoContent');
+
+        // Logic
+        connectBtn.addEventListener('click', async () => {
+            const baseUrl = apiUrlInput.value.replace(/\/$/, '');
+            connectBtn.disabled = true;
+            connectBtn.textContent = 'Fetching...';
+            fileList.innerHTML = '<div class="text-center text-gray-400 mt-10">Loading...</div>';
+
+            try {
+                const response = await fetch(`${baseUrl}/features/list`, {
+                    headers: { 'Accept': 'application/json' }
+                });
+                if (!response.ok) {
+                    throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+                }
+                
+                const contentType = response.headers.get("content-type");
+                if (!contentType || !contentType.includes("application/json")) {
+                    const text = await response.text();
+                    console.error("Received non-JSON response:", text.substring(0, 500));
+                    throw new Error(`Server returned non-JSON content. Content-Type: ${contentType}. See console for details.`);
+                }
+
+                const files = await response.json();
+                renderList(files, baseUrl);
+            } catch (error) {
+                console.error('Error:', error);
+                fileList.innerHTML = `<div class="text-red-400 p-4 text-center text-sm break-words">Error connecting to server.<br><span class="text-xs text-gray-500">${error.message}</span></div>`;
+            } finally {
+                connectBtn.disabled = false;
+                connectBtn.textContent = 'Connect & Fetch List';
+            }
+        });
+
+        function renderList(files, baseUrl) {
+            fileList.innerHTML = '';
+            
+            // Sort files: stormcells_YYYYMMDD-HHMM00.json
+            // We want latest first usually? Or user said "scroll through timestamps", chronological might be better.
+            // Let's sort chronological (oldest to newest) so scrollbar acts like a timeline.
+            const sortedFiles = files
+                .filter(f => f.startsWith('stormcells_'))
+                .sort();
+
+            if (sortedFiles.length === 0) {
+                fileList.innerHTML = '<div class="text-center text-gray-500 mt-10">No stormcell files found.</div>';
+                return;
+            }
+
+            sortedFiles.forEach(filename => {
+                const btn = document.createElement('button');
+                // Extract clean time string
+                // stormcells_20251222-202300.json -> 2025-12-22 20:23:00
+                // Match regex: stormcells_(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})\.json
+                const match = filename.match(/stormcells_(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})\.json/);
+                let label = filename;
+                if (match) {
+                    label = `${match[1]}-${match[2]}-${match[3]} ${match[4]}:${match[5]}`;
+                }
+
+                btn.className = "w-full text-left px-4 py-3 text-sm border-b border-gray-700 hover:bg-gray-700 focus:bg-blue-600 focus:text-white transition-colors block";
+                btn.textContent = label;
+                
+                btn.onclick = () => loadStormCell(baseUrl, filename);
+                fileList.appendChild(btn);
+            });
+        }
+
+        async function loadStormCell(baseUrl, filename) {
+            try {
+                const response = await fetch(`${baseUrl}/features/list/${filename}`, {
+                    headers: { 'Accept': 'application/json' }
+                });
+
+                if (!response.ok) {
+                     throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+                }
+
+                const contentType = response.headers.get("content-type");
+                if (!contentType || !contentType.includes("application/json")) {
+                    const text = await response.text();
+                    console.error("Received non-JSON response for cell data:", text.substring(0, 500));
+                    throw new Error(`Server returned non-JSON content. Content-Type: ${contentType}.`);
+                }
+                
+                const data = await response.json();
+                console.log("Received Data:", JSON.stringify(data, null, 2)); // Debug log
+                renderData(data);
+                
+                // Show info
+                infoPanel.classList.remove('hidden');
+                infoContent.textContent = JSON.stringify({
+                    file: filename,
+                    featureCount: data.features ? data.features.length : 'N/A'
+                }, null, 2);
+
+            } catch (error) {
+                console.error('Error loading cell:', error);
+                alert(`Error loading cell data:\n${error.message}`);
+            }
+        }
+
+        function renderData(data) {
+            console.log("RenderData input:", data);
+            if (currentLayer) {
+                map.removeLayer(currentLayer);
+            }
+
+            // Create a feature group
+            currentLayer = L.featureGroup().addTo(map);
+
+            // Handle potential wrappers: data.content, data.features, or data itself
+            let features = [];
+            if (data.content && data.content.features) {
+                features = data.content.features;
+            } else if (data.features) {
+                features = data.features;
+            } else if (Array.isArray(data)) {
+                features = data;
+            }
+
+            console.log(`Found ${features.length} features to render.`);
+
+            // Styles
+            const polyStyle = {
+                color: "#f87171", // red-400
+                weight: 2,
+                opacity: 1,
+                fillOpacity: 0.3
+            };
+
+            features.forEach(cell => {
+                if (cell.bbox && Array.isArray(cell.bbox) && cell.bbox.length > 0) {
+                    // bbox is [[lat, lon], ...]
+                    // L.polygon expects [[lat, lon], ...]
+                    // We just need to fix longitude > 180
+                    const coords = cell.bbox.map(p => {
+                        let lat = p[0];
+                        let lon = p[1];
+                        if (lon > 180) lon -= 360; 
+                        return [lat, lon];
+                    });
+
+                    const polygon = L.polygon(coords, polyStyle);
+                    
+                    if (cell.properties) {
+                        const props = { ...cell.properties, id: cell.id };
+                        const content = Object.keys(props).map(k => `<b>${k}:</b> ${props[k]}`).join('<br>');
+                        polygon.bindPopup(`<div class="text-xs max-h-40 overflow-auto">${content}</div>`);
+                        
+                        // Sidebar click
+                        polygon.on('click', () => {
+                             infoPanel.classList.remove('hidden');
+                             infoContent.textContent = JSON.stringify(props, null, 2);
+                        });
+                    }
+                    
+                    polygon.addTo(currentLayer);
+                }
+            });
+
+            // Fit bounds if has data
+            if (currentLayer.getLayers().length > 0) {
+                map.fitBounds(currentLayer.getBounds(), { padding: [50, 50] });
+            } else {
+                console.warn("No valid polygons created from data.");
+            }
+        }
+    </script>
+</body>
+</html>
