@@ -57,6 +57,8 @@
 
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- EdgeWARN API Client -->
+    <script src="../utils/edgewarn-api.js"></script>
     <script>
         // Init Map
         // Center on US approximately
@@ -81,27 +83,15 @@
         // Logic
         connectBtn.addEventListener('click', async () => {
             const baseUrl = apiUrlInput.value.replace(/\/$/, '');
+            const apiClient = new EdgeWARNAPI(baseUrl);
+            
             connectBtn.disabled = true;
             connectBtn.textContent = 'Fetching...';
             fileList.innerHTML = '<div class="text-center text-gray-400 mt-10">Loading...</div>';
 
             try {
-                const response = await fetch(`${baseUrl}/features/fetch/resources?type=list`, {
-                    headers: { 'Accept': 'application/json' }
-                });
-                if (!response.ok) {
-                    throw new Error(`Server returned ${response.status}: ${response.statusText}`);
-                }
-                
-                const contentType = response.headers.get("content-type");
-                if (!contentType || !contentType.includes("application/json")) {
-                    const text = await response.text();
-                    console.error("Received non-JSON response:", text.substring(0, 500));
-                    throw new Error(`Server returned non-JSON content. Content-Type: ${contentType}. See console for details.`);
-                }
-
-                const timestamps = await response.json();
-                renderList(timestamps, baseUrl);
+                const timestamps = await apiClient.fetchTimestamps();
+                renderList(timestamps, apiClient);
             } catch (error) {
                 console.error('Error:', error);
                 fileList.innerHTML = `<div class="text-red-400 p-4 text-center text-sm break-words">Error connecting to server.<br><span class="text-xs text-gray-500">${error.message}</span></div>`;
@@ -111,7 +101,7 @@
             }
         });
 
-        function renderList(timestamps, baseUrl) {
+        function renderList(timestamps, apiClient) {
             fileList.innerHTML = '';
             
             // timestamps are now in YYYYMMDD-HHMMSS format (no prefix or extension)
@@ -136,30 +126,14 @@
                 btn.className = "w-full text-left px-4 py-3 text-sm border-b border-gray-700 hover:bg-gray-700 focus:bg-blue-600 focus:text-white transition-colors block";
                 btn.textContent = label;
                 
-                btn.onclick = () => loadStormCell(baseUrl, timestamp);
+                btn.onclick = () => loadStormCell(apiClient, timestamp);
                 fileList.appendChild(btn);
             });
         }
 
-        async function loadStormCell(baseUrl, timestamp) {
+        async function loadStormCell(apiClient, timestamp) {
             try {
-                // Use new API: /features/download/resources?type=list&timestamp=YYYYMMDD-HHMMSS
-                const response = await fetch(`${baseUrl}/features/download/resources?type=list&timestamp=${timestamp}`, {
-                    headers: { 'Accept': 'application/json' }
-                });
-
-                if (!response.ok) {
-                     throw new Error(`Server returned ${response.status}: ${response.statusText}`);
-                }
-
-                const contentType = response.headers.get("content-type");
-                if (!contentType || !contentType.includes("application/json")) {
-                    const text = await response.text();
-                    console.error("Received non-JSON response for cell data:", text.substring(0, 500));
-                    throw new Error(`Server returned non-JSON content. Content-Type: ${contentType}.`);
-                }
-                
-                const data = await response.json();
+                const data = await apiClient.downloadStormcellList(timestamp);
                 console.log("Received Data:", JSON.stringify(data, null, 2)); // Debug log
                 renderData(data);
                 
