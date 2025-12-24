@@ -86,7 +86,7 @@
             fileList.innerHTML = '<div class="text-center text-gray-400 mt-10">Loading...</div>';
 
             try {
-                const response = await fetch(`${baseUrl}/features/list`, {
+                const response = await fetch(`${baseUrl}/features/fetch/resources?type=list`, {
                     headers: { 'Accept': 'application/json' }
                 });
                 if (!response.ok) {
@@ -100,8 +100,8 @@
                     throw new Error(`Server returned non-JSON content. Content-Type: ${contentType}. See console for details.`);
                 }
 
-                const files = await response.json();
-                renderList(files, baseUrl);
+                const timestamps = await response.json();
+                renderList(timestamps, baseUrl);
             } catch (error) {
                 console.error('Error:', error);
                 fileList.innerHTML = `<div class="text-red-400 p-4 text-center text-sm break-words">Error connecting to server.<br><span class="text-xs text-gray-500">${error.message}</span></div>`;
@@ -111,28 +111,24 @@
             }
         });
 
-        function renderList(files, baseUrl) {
+        function renderList(timestamps, baseUrl) {
             fileList.innerHTML = '';
             
-            // Sort files: stormcells_YYYYMMDD-HHMM00.json
-            // We want latest first usually? Or user said "scroll through timestamps", chronological might be better.
-            // Let's sort chronological (oldest to newest) so scrollbar acts like a timeline.
-            const sortedFiles = files
-                .filter(f => f.startsWith('stormcells_'))
-                .sort();
+            // timestamps are now in YYYYMMDD-HHMMSS format (no prefix or extension)
+            // Sort chronological (oldest to newest) so scrollbar acts like a timeline.
+            const sortedTimestamps = Array.isArray(timestamps) ? timestamps.sort() : [];
 
-            if (sortedFiles.length === 0) {
-                fileList.innerHTML = '<div class="text-center text-gray-500 mt-10">No stormcell files found.</div>';
+            if (sortedTimestamps.length === 0) {
+                fileList.innerHTML = '<div class="text-center text-gray-500 mt-10">No stormcell timestamps found.</div>';
                 return;
             }
 
-            sortedFiles.forEach(filename => {
+            sortedTimestamps.forEach(timestamp => {
                 const btn = document.createElement('button');
-                // Extract clean time string
-                // stormcells_20251222-202300.json -> 2025-12-22 20:23:00
-                // Match regex: stormcells_(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})\.json
-                const match = filename.match(/stormcells_(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})\.json/);
-                let label = filename;
+                // timestamp format: YYYYMMDD-HHMMSS (e.g., 20251222-202300)
+                // Display format: YYYY-MM-DD HH:MM
+                const match = timestamp.match(/(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})/);
+                let label = timestamp;
                 if (match) {
                     label = `${match[1]}-${match[2]}-${match[3]} ${match[4]}:${match[5]}`;
                 }
@@ -140,14 +136,15 @@
                 btn.className = "w-full text-left px-4 py-3 text-sm border-b border-gray-700 hover:bg-gray-700 focus:bg-blue-600 focus:text-white transition-colors block";
                 btn.textContent = label;
                 
-                btn.onclick = () => loadStormCell(baseUrl, filename);
+                btn.onclick = () => loadStormCell(baseUrl, timestamp);
                 fileList.appendChild(btn);
             });
         }
 
-        async function loadStormCell(baseUrl, filename) {
+        async function loadStormCell(baseUrl, timestamp) {
             try {
-                const response = await fetch(`${baseUrl}/features/list/${filename}`, {
+                // Use new API: /features/download/resources?type=list&timestamp=YYYYMMDD-HHMMSS
+                const response = await fetch(`${baseUrl}/features/download/resources?type=list&timestamp=${timestamp}`, {
                     headers: { 'Accept': 'application/json' }
                 });
 
@@ -169,7 +166,7 @@
                 // Show info
                 infoPanel.classList.remove('hidden');
                 infoContent.textContent = JSON.stringify({
-                    file: filename,
+                    timestamp: timestamp,
                     featureCount: data.features ? data.features.length : 'N/A'
                 }, null, 2);
 
