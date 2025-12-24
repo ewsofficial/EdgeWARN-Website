@@ -5,6 +5,9 @@ const http = require('http');
 const app = express();
 const START_PORT = 3001;
 
+// Serve static files from the parent directory to allow access to /utils
+app.use(express.static(path.join(__dirname, '..')));
+
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'stormcell_test.html'));
 });
