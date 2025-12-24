@@ -37,10 +37,27 @@
         </div>
 
         <!-- List Container -->
-        <div id="fileList" class="flex-1 overflow-y-auto p-2 space-y-1">
-            <div class="text-center text-gray-500 text-sm mt-10">
-                Not connected.
+        <!-- Slider Container -->
+        <div id="sliderContainer" class="flex-1 flex flex-col justify-end p-4 space-y-4 hidden">
+            <div class="text-center">
+                <div class="text-gray-400 text-xs uppercase tracking-wide mb-1">Current Time</div>
+                <div id="timeDisplay" class="text-xl font-mono text-blue-300 font-bold">--:--</div>
+                <div id="dateDisplay" class="text-xs text-gray-500">YYYY-MM-DD</div>
             </div>
+
+            <div class="relative w-full h-12 flex items-center">
+                <input type="range" id="timeSlider" min="0" max="100" value="0" step="1" 
+                    class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-600 accent-blue-500">
+            </div>
+            
+            <div class="flex justify-between text-xs text-gray-600">
+                <span id="startTime">Start</span>
+                <span id="endTime">End</span>
+            </div>
+        </div>
+
+        <div id="statusMsg" class="flex-1 flex items-center justify-center p-4 text-gray-500 text-sm italic">
+            Not connected.
         </div>
     </div>
 
@@ -76,9 +93,13 @@
         // Elements
         const apiUrlInput = document.getElementById('apiUrl');
         const connectBtn = document.getElementById('connectBtn');
-        const fileList = document.getElementById('fileList');
-        const infoPanel = document.getElementById('infoPanel');
-        const infoContent = document.getElementById('infoContent');
+        const sliderContainer = document.getElementById('sliderContainer');
+        const statusMsg = document.getElementById('statusMsg');
+        const timeSlider = document.getElementById('timeSlider');
+        const timeDisplay = document.getElementById('timeDisplay');
+        const dateDisplay = document.getElementById('dateDisplay');
+        // State
+        let allTimestamps = [];
 
         // Logic
         connectBtn.addEventListener('click', async () => {
@@ -87,48 +108,77 @@
             
             connectBtn.disabled = true;
             connectBtn.textContent = 'Fetching...';
-            fileList.innerHTML = '<div class="text-center text-gray-400 mt-10">Loading...</div>';
+            statusMsg.textContent = 'Loading timestamps...';
+            statusMsg.classList.remove('hidden');
+            sliderContainer.classList.add('hidden');
 
             try {
                 const timestamps = await apiClient.fetchTimestamps();
-                renderList(timestamps, apiClient);
+                setupSlider(timestamps, apiClient);
             } catch (error) {
                 console.error('Error:', error);
-                fileList.innerHTML = `<div class="text-red-400 p-4 text-center text-sm break-words">Error connecting to server.<br><span class="text-xs text-gray-500">${error.message}</span></div>`;
+                statusMsg.innerHTML = `<span class="text-red-400">Error: ${error.message}</span>`;
             } finally {
                 connectBtn.disabled = false;
                 connectBtn.textContent = 'Connect & Fetch List';
             }
         });
 
-        function renderList(timestamps, apiClient) {
-            fileList.innerHTML = '';
-            
-            // timestamps are now in YYYYMMDD-HHMMSS format (no prefix or extension)
-            // Sort chronological (oldest to newest) so scrollbar acts like a timeline.
-            const sortedTimestamps = Array.isArray(timestamps) ? timestamps.sort() : [];
+        function formatTimeLabel(ts) {
+            // YYYYMMDD-HHMMSS
+            const match = ts.match(/(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})/);
+            if (!match) return { date: ts, time: '' };
+            return {
+                date: `${match[1]}-${match[2]}-${match[3]}`,
+                time: `${match[4]}:${match[5]}:${match[6]}`
+            };
+        }
 
-            if (sortedTimestamps.length === 0) {
-                fileList.innerHTML = '<div class="text-center text-gray-500 mt-10">No stormcell timestamps found.</div>';
+        function updateDisplay(index) {
+            if (!allTimestamps[index]) return;
+            const ts = allTimestamps[index];
+            const fmt = formatTimeLabel(ts);
+            timeDisplay.textContent = fmt.time;
+            dateDisplay.textContent = fmt.date;
+        }
+
+        function setupSlider(timestamps, apiClient) {
+            // Sort chronological
+            allTimestamps = Array.isArray(timestamps) ? timestamps.sort() : [];
+
+            if (allTimestamps.length === 0) {
+                statusMsg.textContent = 'No stormcell timestamps found.';
                 return;
             }
 
-            sortedTimestamps.forEach(timestamp => {
-                const btn = document.createElement('button');
-                // timestamp format: YYYYMMDD-HHMMSS (e.g., 20251222-202300)
-                // Display format: YYYY-MM-DD HH:MM
-                const match = timestamp.match(/(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})/);
-                let label = timestamp;
-                if (match) {
-                    label = `${match[1]}-${match[2]}-${match[3]} ${match[4]}:${match[5]}`;
-                }
+            statusMsg.classList.add('hidden');
+            sliderContainer.classList.remove('hidden');
 
-                btn.className = "w-full text-left px-4 py-3 text-sm border-b border-gray-700 hover:bg-gray-700 focus:bg-blue-600 focus:text-white transition-colors block";
-                btn.textContent = label;
-                
-                btn.onclick = () => loadStormCell(apiClient, timestamp);
-                fileList.appendChild(btn);
-            });
+            // Config slider
+            timeSlider.min = 0;
+            timeSlider.max = allTimestamps.length - 1;
+            timeSlider.value = 0; // Start at beginning? Or end? Let's do beginning.
+
+            // Set start/end labels
+            const startFmt = formatTimeLabel(allTimestamps[0]);
+            const endFmt = formatTimeLabel(allTimestamps[allTimestamps.length - 1]);
+            document.getElementById('startTime').textContent = startFmt.time;
+            document.getElementById('endTime').textContent = endFmt.time;
+
+            // Initial display
+            updateDisplay(0);
+            loadStormCell(apiClient, allTimestamps[0]);
+
+            // Event listener
+            timeSlider.oninput = (e) => {
+                const idx = parseInt(e.target.value);
+                updateDisplay(idx);
+            };
+
+            timeSlider.onchange = (e) => {
+                const idx = parseInt(e.target.value);
+                loadStormCell(apiClient, allTimestamps[idx]);
+            };
         }
 
         async function loadStormCell(apiClient, timestamp) {
