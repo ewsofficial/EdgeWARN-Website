@@ -157,28 +157,42 @@
             // Config slider
             timeSlider.min = 0;
             timeSlider.max = allTimestamps.length - 1;
-            timeSlider.value = 0; // Start at beginning? Or end? Let's do beginning.
+            // Start at end (latest available data) to avoid stale index 404s
+            const lastIdx = allTimestamps.length - 1;
+            timeSlider.value = lastIdx; 
 
             // Set start/end labels
             const startFmt = formatTimeLabel(allTimestamps[0]);
-            const endFmt = formatTimeLabel(allTimestamps[allTimestamps.length - 1]);
+            const endFmt = formatTimeLabel(allTimestamps[lastIdx]);
             document.getElementById('startTime').textContent = startFmt.time;
             document.getElementById('endTime').textContent = endFmt.time;
 
             // Initial display
-            updateDisplay(0);
-            loadStormCell(apiClient, allTimestamps[0]);
+            updateDisplay(lastIdx);
+            loadStormCell(apiClient, allTimestamps[lastIdx]);
+
+            // Debounce helper to limit API calls
+            const debounce = (func, wait) => {
+                let timeout;
+                return (...args) => {
+                    clearTimeout(timeout);
+                    timeout = setTimeout(() => func.apply(this, args), wait);
+                };
+            };
+
+            const debouncedLoad = debounce((idx) => {
+                loadStormCell(apiClient, allTimestamps[idx]);
+            }, 200);
 
             // Event listener
             timeSlider.oninput = (e) => {
                 const idx = parseInt(e.target.value);
                 updateDisplay(idx);
+                debouncedLoad(idx);
             };
 
-            timeSlider.onchange = (e) => {
-                const idx = parseInt(e.target.value);
-                loadStormCell(apiClient, allTimestamps[idx]);
-            };
+            // Remove onchange as we use debounced oninput now
+            timeSlider.onchange = null;
         }
 
         async function loadStormCell(apiClient, timestamp) {
@@ -195,8 +209,20 @@
                 }, null, 2);
 
             } catch (error) {
-                console.error('Error loading cell:', error);
-                alert(`Error loading cell data:\n${error.message}`);
+                console.warn(`Error loading cell data for ${timestamp}:`, error);
+                // If it's a 404/missing file, just clear the map and show a status, don't popup alert
+                if (error.message.includes('404') || error.message.includes('not found')) {
+                    statusMsg.textContent = `Data not available for ${timestamp} (likely cleaned up).`;
+                    statusMsg.classList.remove('hidden');
+                    if (currentLayer) {
+                        map.removeLayer(currentLayer);
+                        currentLayer = null;
+                    }
+                    infoPanel.classList.add('hidden');
+                } else {
+                    // unexpected error
+                    alert(`Error loading cell data:\n${error.message}`);
+                }
             }
         }
 
