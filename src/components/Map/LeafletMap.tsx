@@ -490,12 +490,6 @@ export default function LeafletMap() {
 
 
                       <div className="flex-1 flex flex-col justify-end p-4 space-y-4">
-                           <div className="text-center">
-                                <div className="text-gray-400 text-xs uppercase tracking-wide mb-1">Current Time</div>
-                                <div className="text-xl font-mono text-blue-300 font-bold">{time || '--:--'}</div>
-                                <div className="text-xs text-gray-500">{date || 'YYYY-MM-DD'}</div>
-                           </div>
-                           
                            <SlidebarControl 
                                currentIndex={currentIndex}
                                totalFrames={timestamps.length}
