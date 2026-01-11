@@ -427,6 +427,15 @@ export default function LeafletMap() {
              {/* Map Area */}
              <div className="flex-1 relative">
                   <div ref={mapContainerRef} className="h-full w-full z-0" />
+
+                  {/* Top Bar for Time */}
+                  {isConnected && (
+                       <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-[400] bg-gray-900/90 backdrop-blur-md border border-gray-700/50 rounded-full px-6 py-2 shadow-xl flex items-center gap-4 pointer-events-none select-none">
+                           <div className="text-2xl font-mono text-blue-400 font-bold drop-shadow-sm tracking-wider">{time || '--:--'}</div>
+                           <div className="h-8 w-px bg-gray-700"></div>
+                           <div className="text-sm text-gray-400 font-medium tracking-wide uppercase">{date || 'YYYY-MM-DD'}</div>
+                       </div>
+                  )}
                   
                   {selectedCellInfo && (
                        <div className="absolute top-4 right-4 z-[1000] bg-gray-800/90 backdrop-blur border border-gray-600 rounded p-4 max-w-xs shadow-lg text-white">
