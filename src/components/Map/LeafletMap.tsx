@@ -35,7 +35,7 @@ export default function LeafletMap() {
     const [products, setProducts] = useState<string[]>([]);
     const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
     const [productTimestamps, setProductTimestamps] = useState<string[]>([]);
-    const [latOffset, setLatOffset] = useState(0);
+
     
     // Toggles
     const [showRadar, setShowRadar] = useState(true);
@@ -236,8 +236,8 @@ export default function LeafletMap() {
              const directUrl = ewmrsRef.current.getRenderUrl(selectedProduct, bestTimestamp);
              const proxyUrl = `/api/proxy-render?url=${encodeURIComponent(directUrl)}`;
 
-             const baseSouth = 20 + latOffset;
-             const baseNorth = 55 + latOffset;
+             const baseSouth = 20;
+             const baseNorth = 55;
              const baseWest = -130;
              const baseEast = -60;
              const bounds: L.LatLngBoundsExpression = [[baseSouth, baseWest], [baseNorth, baseEast]];
@@ -266,7 +266,7 @@ export default function LeafletMap() {
         
         setLoading(false);
 
-    }, [timestamps, showRadar, selectedProduct, productTimestamps, latOffset, crisp, showContour]); // Deps
+    }, [timestamps, showRadar, selectedProduct, productTimestamps, crisp, showContour]); // Deps
 
     // Debounce/Listen to slide change
     useEffect(() => {
@@ -380,11 +380,7 @@ export default function LeafletMap() {
                                             Show Radar Layer
                                         </label>
                                         
-                                        <div className="pt-2">
-                                            <label className="block text-xs text-gray-400 mb-1">Latitude Offset: {latOffset}</label>
-                                            <input type="number" step="0.1" value={latOffset} onChange={e => setLatOffset(parseFloat(e.target.value))}
-                                                className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm" />
-                                        </div>
+
 
                                         <label className="flex items-center text-xs text-gray-400 cursor-pointer">
                                             <input type="checkbox" checked={showBounds} onChange={e => setShowBounds(e.target.checked)} className="mr-2"/>
