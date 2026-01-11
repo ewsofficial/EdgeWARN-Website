@@ -43,6 +43,9 @@ export default function LeafletMap() {
     const [showContour, setShowContour] = useState(false);
     const [crisp, setCrisp] = useState(true);
 
+    // Flashing state for new data
+    const [isFlashing, setIsFlashing] = useState(false);
+
     const [selectedCellInfo, setSelectedCellInfo] = useState<string | null>(null);
 
     // Initialization
@@ -233,8 +236,7 @@ export default function LeafletMap() {
                  return; // Skip rendering overlay
              }
 
-             const directUrl = ewmrsRef.current.getRenderUrl(selectedProduct, bestTimestamp);
-             const proxyUrl = `/api/proxy-render?url=${encodeURIComponent(directUrl)}`;
+             const imageUrl = ewmrsRef.current.getRenderUrl(selectedProduct, bestTimestamp);
 
              const baseSouth = 20;
              const baseNorth = 55;
@@ -246,7 +248,7 @@ export default function LeafletMap() {
              // We'll trust leafelt error handling usually, but checking avoids 404 console spam visually?
              // Skipping HEAD check for speed.
 
-             const overlay = L.imageOverlay(proxyUrl, bounds, { opacity: 0.6 }).addTo(map);
+             const overlay = L.imageOverlay(imageUrl, bounds, { opacity: 0.6 }).addTo(map);
              overlay.bringToBack();
              imageOverlayRef.current = overlay;
 
@@ -267,6 +269,69 @@ export default function LeafletMap() {
         setLoading(false);
 
     }, [timestamps, showRadar, selectedProduct, productTimestamps, crisp, showContour]); // Deps
+
+    // Auto-refresh logic (every 30 seconds)
+    useEffect(() => {
+        if (!isConnected || !apiRef.current) return;
+
+        const interval = setInterval(async () => {
+            let hasGlobalUpdate = false;
+            let currentMainTimestamps = timestamps;
+
+            // 1. Check EdgeWARN timestamps
+            try {
+                const latestTimestamps = await apiRef.current?.fetchTimestamps();
+                if (latestTimestamps && latestTimestamps.length > 0) {
+                    const sortedLatest = [...latestTimestamps].sort();
+                    const sortedPrev = [...timestamps].sort();
+                    
+                    const isNew = sortedLatest.length !== sortedPrev.length || 
+                                  sortedLatest[sortedLatest.length - 1] !== sortedPrev[sortedPrev.length - 1];
+                    
+                    if (isNew) {
+                        setTimestamps(sortedLatest);
+                        currentMainTimestamps = sortedLatest;
+                        hasGlobalUpdate = true;
+                    }
+                }
+            } catch (err) {
+                console.warn("Auto-refresh EdgeWARN failed", err);
+            }
+
+            // 2. Check EWMRS timestamps (if product selected)
+            if (selectedProduct && ewmrsRef.current) {
+                try {
+                     const latestProdTs = await ewmrsRef.current.getProductTimestamps(selectedProduct);
+                     if (latestProdTs && latestProdTs.length > 0) {
+                        const sortedLatest = [...latestProdTs].sort();
+                        const sortedPrev = [...productTimestamps].sort();
+                        
+                        const isNew = sortedLatest.length !== sortedPrev.length || 
+                                      sortedLatest[sortedLatest.length - 1] !== sortedPrev[sortedPrev.length - 1];
+                        
+                        if (isNew) {
+                            setProductTimestamps(sortedLatest);
+                            hasGlobalUpdate = true;
+                        }
+                     }
+                } catch(err) {
+                    console.warn("Auto-refresh EWMRS failed", err);
+                }
+            }
+
+            if (hasGlobalUpdate) {
+                // Flash for 1 second
+                setIsFlashing(true);
+                setTimeout(() => setIsFlashing(false), 1000);
+                // Auto-scroll to latest
+                if (currentMainTimestamps.length > 0) {
+                    setCurrentIndex(currentMainTimestamps.length - 1);
+                }
+            }
+        }, 30000);
+
+        return () => clearInterval(interval);
+    }, [isConnected, timestamps, productTimestamps, selectedProduct]);
 
     // Debounce/Listen to slide change
     useEffect(() => {
@@ -430,10 +495,10 @@ export default function LeafletMap() {
 
                   {/* Top Bar for Time */}
                   {isConnected && (
-                       <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-[400] bg-gray-900/90 backdrop-blur-md border border-gray-700/50 rounded-full px-6 py-2 shadow-xl flex items-center gap-4 pointer-events-none select-none">
-                           <div className="text-2xl font-mono text-blue-400 font-bold drop-shadow-sm tracking-wider">{time || '--:--'}</div>
-                           <div className="h-8 w-px bg-gray-700"></div>
-                           <div className="text-sm text-gray-400 font-medium tracking-wide uppercase">{date || 'YYYY-MM-DD'}</div>
+                       <div className={`absolute top-4 left-1/2 transform -translate-x-1/2 z-[400] backdrop-blur-md border rounded-full px-6 py-2 shadow-xl flex items-center gap-4 pointer-events-none select-none transition-all duration-500 ${isFlashing ? 'bg-green-900/90 border-green-500/80 scale-105' : 'bg-gray-900/90 border-gray-700/50'}`}>
+                           <div className={`text-2xl font-mono font-bold drop-shadow-sm tracking-wider transition-colors duration-300 ${isFlashing ? 'text-green-300' : 'text-blue-400'}`}>{time || '--:--'}</div>
+                           <div className={`h-8 w-px transition-colors duration-300 ${isFlashing ? 'bg-green-600' : 'bg-gray-700'}`}></div>
+                           <div className={`text-sm font-medium tracking-wide uppercase transition-colors duration-300 ${isFlashing ? 'text-green-200' : 'text-gray-400'}`}>{date || 'YYYY-MM-DD'}</div>
                        </div>
                   )}
                   
