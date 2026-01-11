@@ -1,9 +1,0 @@
-{
-  "/_global-error/page": "/_global-error",
-  "/_not-found/page": "/_not-found",
-  "/api/proxy-render/route": "/api/proxy-render",
-  "/coming-soon/page": "/coming-soon",
-  "/favicon.ico/route": "/favicon.ico",
-  "/interactive-map/page": "/interactive-map",
-  "/page": "/"
-}

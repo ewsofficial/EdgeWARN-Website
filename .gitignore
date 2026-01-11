@@ -207,3 +207,14 @@ marimo/_lsp/
 __marimo__/
 
 node_modules
+
+# Next.js
+/.next/
+/out/
+.env*.local
+.vercel
+*.tsbuildinfo
+# next-env.d.ts is often committed, but can be ignored if preferred.
+# Keeping it tracked is standard for many, but ignoring it prevents noise.
+# Uncomment if desired:
+# next-env.d.ts
