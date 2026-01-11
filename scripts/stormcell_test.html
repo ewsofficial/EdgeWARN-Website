@@ -86,14 +86,35 @@
     <script src="../utils/ewmrs.js"></script>
     <script>
         // Init Map
-        // Center on US approximately
-        const map = L.map('map').setView([37.8, -96], 4);
+        // Use Equirectangular projection (EPSG:4326) to match radar renders
+        const map = L.map('map', {
+            crs: L.CRS.EPSG4326,
+            center: [37.8, -96],
+            zoom: 4,
+            minZoom: 3
+        });
 
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-            subdomains: 'abcd',
-            maxZoom: 20
+        // OpenStreetMap WMS (EPSG:4326 compatible) via Terrestris
+        L.tileLayer.wms('https://ows.terrestris.de/osm/service', {
+            layers: 'OSM-WMS',
+            format: 'image/png',
+            transparent: false,
+            version: '1.3.0',
+            attribution: '&copy; <a href="https://www.terrestris.de/en/openstreetmap-wms/">terrestris</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+            // EPSG:4326 is supported by this WMS
         }).addTo(map);
+
+        // Previous: NASA GIBS Blue Marble
+        /*
+        L.tileLayer.wms('https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi', {
+            layers: 'BlueMarble_NextGeneration',
+            format: 'image/jpeg',
+            transparent: false,
+            version: '1.3.0',
+            attribution: 'NASA GIBS',
+            tileSize: 512
+        }).addTo(map);
+        */
 
         // State
         let currentLayer = null;
