@@ -20,7 +20,8 @@ export class EdgeWARNAPI {
      */
     async fetchTimestamps(): Promise<string[]> {
         const response = await fetch(`${this.baseUrl}/features/fetch/resources?type=list`, {
-            headers: { 'Accept': 'application/json' }
+            headers: { 'Accept': 'application/json' },
+            cache: 'no-store'
         });
 
         if (!response.ok) {
@@ -43,7 +44,8 @@ export class EdgeWARNAPI {
      */
     async fetchCellIds(): Promise<number[]> {
         const response = await fetch(`${this.baseUrl}/features/fetch/resources?type=cell`, {
-            headers: { 'Accept': 'application/json' }
+            headers: { 'Accept': 'application/json' },
+            cache: 'no-store'
         });
 
         if (!response.ok) {
@@ -60,7 +62,8 @@ export class EdgeWARNAPI {
      */
     async downloadStormcellList(timestamp: string): Promise<any> {
         const response = await fetch(`${this.baseUrl}/features/download/resources?type=list&timestamp=${timestamp}`, {
-            headers: { 'Accept': 'application/json' }
+            headers: { 'Accept': 'application/json' },
+            cache: 'no-store'
         });
 
         if (!response.ok) {
@@ -82,7 +85,8 @@ export class EdgeWARNAPI {
      */
     async downloadCellHistory(cellId: number): Promise<any[]> {
         const response = await fetch(`${this.baseUrl}/features/download/resources?type=cell&id=${cellId}`, {
-            headers: { 'Accept': 'application/json' }
+            headers: { 'Accept': 'application/json' },
+            cache: 'no-store'
         });
 
         if (!response.ok) {
@@ -98,7 +102,8 @@ export class EdgeWARNAPI {
      */
     async checkHealth(): Promise<any> {
         const response = await fetch(`${this.baseUrl}/health`, {
-            headers: { 'Accept': 'application/json' }
+            headers: { 'Accept': 'application/json' },
+            cache: 'no-store'
         });
 
         if (!response.ok) {
@@ -114,7 +119,8 @@ export class EdgeWARNAPI {
      */
     async getAPIInfo(): Promise<any> {
         const response = await fetch(`${this.baseUrl}/features/`, {
-            headers: { 'Accept': 'application/json' }
+            headers: { 'Accept': 'application/json' },
+            cache: 'no-store'
         });
 
         if (!response.ok) {

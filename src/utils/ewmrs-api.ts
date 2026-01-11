@@ -20,7 +20,8 @@ export class EWMRSAPI {
      */
     async getAvailableProducts(): Promise<string[]> {
         const response = await fetch(`${this.baseUrl}/renders/get-items`, {
-            headers: { 'Accept': 'application/json' }
+            headers: { 'Accept': 'application/json' },
+            cache: 'no-store'
         });
 
         if (!response.ok) {
@@ -36,7 +37,8 @@ export class EWMRSAPI {
      */
     async getProductTimestamps(product: string): Promise<string[]> {
         const response = await fetch(`${this.baseUrl}/renders/fetch?product=${encodeURIComponent(product)}`, {
-            headers: { 'Accept': 'application/json' }
+            headers: { 'Accept': 'application/json' },
+            cache: 'no-store'
         });
 
         if (!response.ok) {
