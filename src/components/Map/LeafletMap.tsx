@@ -41,9 +41,10 @@ export default function LeafletMap() {
     
     // Toggles
     const [showRadar, setShowRadar] = useState(true);
-    const [showBounds, setShowBounds] = useState(false);
-    const [showContour, setShowContour] = useState(false);
-    const [crisp, setCrisp] = useState(true);
+    // Hardcoded defaults per request: Bounds=Off, Contour=Off, Crisp=On
+    const showBounds = false;
+    const showContour = false;
+    const crisp = true;
 
     // Flashing state for new data
     const [isFlashing, setIsFlashing] = useState(false);
@@ -474,21 +475,6 @@ export default function LeafletMap() {
                                         <label className="flex items-center text-xs text-gray-400 cursor-pointer">
                                             <input type="checkbox" checked={showRadar} onChange={e => setShowRadar(e.target.checked)} className="mr-2"/>
                                             Show Radar Layer
-                                        </label>
-                                        
-
-
-                                        <label className="flex items-center text-xs text-gray-400 cursor-pointer">
-                                            <input type="checkbox" checked={showBounds} onChange={e => setShowBounds(e.target.checked)} className="mr-2"/>
-                                            Show Reference Bounds
-                                        </label>
-                                        <label className="flex items-center text-xs text-gray-400 cursor-pointer">
-                                            <input type="checkbox" checked={crisp} onChange={e => setCrisp(e.target.checked)} className="mr-2"/>
-                                            Crisp Rendering
-                                        </label>
-                                        <label className="flex items-center text-xs text-gray-400 cursor-pointer">
-                                            <input type="checkbox" checked={showContour} onChange={e => setShowContour(e.target.checked)} className="mr-2"/>
-                                            Show Image Contour
                                         </label>
                                     </div>
                                 </>
