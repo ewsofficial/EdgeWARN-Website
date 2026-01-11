@@ -1,26 +1,28 @@
 {
-  "name": "edgewarn.org",
-  "version": "2025.12.8",
-  "description": "EdgeWARN's web-based GUI interface that connects with EdgeWARN-Core",
-  "main": "index.js",
+  "name": "temp_build",
+  "version": "0.1.0",
+  "private": true,
   "scripts": {
-    "start": "node server.js",
-    "dev": "NODE_ENV=development node server.js",
-    "scripts:ui-test": "node scripts/ui_test_server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/ewsofficial/EdgeWARN-Website.git"
-  },
-  "author": "Edgemont Weather Service",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/ewsofficial/EdgeWARN-Website/issues"
-  },
-  "homepage": "https://github.com/ewsofficial/EdgeWARN-Website#readme"
-  ,
   "dependencies": {
-    "express": "^4.18.2"
+    "@types/leaflet": "^1.9.21",
+    "leaflet": "^1.9.4",
+    "next": "16.1.1",
+    "react": "19.2.3",
+    "react-dom": "19.2.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.1.1",
+    "tailwindcss": "^4",
+    "typescript": "^5"
   }
 }
