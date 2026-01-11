@@ -5,6 +5,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css'; // Ensure CSS is imported
 import { EdgeWARNAPI } from '@/utils/edgewarn-api';
 import { EWMRSAPI } from '@/utils/ewmrs-api';
+import SlidebarControl from '../UI/SlidebarControl';
 
 interface TimestampStr {
     date: string;
@@ -30,6 +31,7 @@ export default function LeafletMap() {
 
     const [timestamps, setTimestamps] = useState<string[]>([]);
     const [currentIndex, setCurrentIndex] = useState(0);
+    const [isPlaying, setIsPlaying] = useState(false);
     
     // EWMRS State
     const [products, setProducts] = useState<string[]>([]);
@@ -217,6 +219,9 @@ export default function LeafletMap() {
         // 2. Render Overlay (Radar)
         // Cleanup existing
         if (imageOverlayRef.current) {
+            if ((imageOverlayRef.current as any)._blobUrl) {
+                URL.revokeObjectURL((imageOverlayRef.current as any)._blobUrl);
+            }
             map.removeLayer(imageOverlayRef.current);
             imageOverlayRef.current = null;
         }
@@ -236,25 +241,34 @@ export default function LeafletMap() {
                  return; // Skip rendering overlay
              }
 
-             const imageUrl = ewmrsRef.current.getRenderUrl(selectedProduct, bestTimestamp);
-
              const baseSouth = 20;
              const baseNorth = 55;
              const baseWest = -130;
              const baseEast = -60;
              const bounds: L.LatLngBoundsExpression = [[baseSouth, baseWest], [baseNorth, baseEast]];
 
-             // Check HEAD first? No, just load it. Or use fetch to check.
-             // We'll trust leafelt error handling usually, but checking avoids 404 console spam visually?
-             // Skipping HEAD check for speed.
+             const directUrl = ewmrsRef.current.getRenderUrl(selectedProduct, bestTimestamp);
+             
+             try {
+                const res = await fetch(directUrl);
+                if (res.ok) {
+                    const blob = await res.blob();
+                    const objectUrl = URL.createObjectURL(blob);
+                    
+                    const overlay = L.imageOverlay(objectUrl, bounds, { opacity: 0.6 }).addTo(map);
+                    overlay.bringToBack();
+                    imageOverlayRef.current = overlay;
+                    
+                    // Store URL for cleanup
+                    (overlay as any)._blobUrl = objectUrl;
 
-             const overlay = L.imageOverlay(imageUrl, bounds, { opacity: 0.6 }).addTo(map);
-             overlay.bringToBack();
-             imageOverlayRef.current = overlay;
-
-             if (crisp) {
-                 const el = overlay.getElement();
-                 if (el) el.classList.add('pixelated-overlay');
+                    if (crisp) {
+                        const el = overlay.getElement();
+                        if (el) el.classList.add('pixelated-overlay');
+                    }
+                }
+             } catch (err) {
+                console.warn("Failed to load radar image via fetch", err);
              }
 
              if (showContour) {
@@ -391,6 +405,23 @@ export default function LeafletMap() {
         };
         updateProdTs();
     }, [selectedProduct]);
+    
+    // Playback Logic
+    useEffect(() => {
+        let interval: NodeJS.Timeout;
+        if (isPlaying && timestamps.length > 0 && isConnected) {
+            interval = setInterval(() => {
+                setCurrentIndex(prev => {
+                    if (prev >= timestamps.length - 1) {
+                        setIsPlaying(false);
+                        return prev;
+                    }
+                    return prev + 1;
+                });
+            }, 1000); 
+        }
+        return () => clearInterval(interval);
+    }, [isPlaying, timestamps.length, isConnected]);
 
     // Current Time Labels
     const currentTs = timestamps[currentIndex] || '';
@@ -466,6 +497,9 @@ export default function LeafletMap() {
                   </div>
 
                   {isConnected && (
+
+
+
                       <div className="flex-1 flex flex-col justify-end p-4 space-y-4">
                            <div className="text-center">
                                 <div className="text-gray-400 text-xs uppercase tracking-wide mb-1">Current Time</div>
@@ -473,19 +507,17 @@ export default function LeafletMap() {
                                 <div className="text-xs text-gray-500">{date || 'YYYY-MM-DD'}</div>
                            </div>
                            
-                           <div className="relative w-full h-12 flex items-center">
-                                <input type="range" min={0} max={timestamps.length - 1} value={currentIndex} 
-                                    onChange={e => setCurrentIndex(parseInt(e.target.value))}
-                                    className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500" />
-                           </div>
-                           
-                           <div className="flex justify-between text-xs text-gray-600">
-                                <span>Start</span>
-                                <span>End</span>
-                           </div>
+                           <SlidebarControl 
+                               currentIndex={currentIndex}
+                               totalFrames={timestamps.length}
+                               onIndexChange={setCurrentIndex}
+                               isPlaying={isPlaying}
+                               onTogglePlay={() => setIsPlaying(!isPlaying)}
+                           />
                            
                            {error && <div className="text-xs text-red-500 italic text-center">{error}</div>}
                       </div>
+
                   )}
              </div>
 
