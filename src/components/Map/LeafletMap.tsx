@@ -6,6 +6,9 @@ import 'leaflet/dist/leaflet.css'; // Ensure CSS is imported
 import { EdgeWARNAPI } from '@/utils/edgewarn-api';
 import { EWMRSAPI } from '@/utils/ewmrs-api';
 import SlidebarControl from '../UI/SlidebarControl';
+import { MapToolbar } from '../UI/MapToolbar';
+import { DistanceTool } from '../UI/DistanceTool';
+import { CircleTool } from '../UI/CircleTool';
 
 interface TimestampStr {
     date: string;
@@ -529,6 +532,12 @@ export default function LeafletMap() {
                             <pre className="text-xs overflow-auto max-h-60 text-gray-300 whitespace-pre-wrap">{selectedCellInfo}</pre>
                        </div>
                   )}
+                  
+                  {/* Modular Toolbar */}
+                  <MapToolbar>
+                      <DistanceTool map={mapInstanceRef.current} />
+                      <CircleTool map={mapInstanceRef.current} />
+                  </MapToolbar>
              </div>
         </div>
     );
