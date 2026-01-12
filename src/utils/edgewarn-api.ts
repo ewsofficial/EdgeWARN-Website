@@ -61,7 +61,13 @@ export class EdgeWARNAPI {
      * @returns Stormcell list JSON data
      */
     async downloadStormcellList(timestamp: string): Promise<any> {
-        const response = await fetch(`${this.baseUrl}/features/download/resources?type=list&timestamp=${timestamp}`, {
+        // Validation: Expects YYYYMMDD-HHMMSS format
+        // Basic regex to prevent injection and ensure format
+        if (!/^\d{8}-\d{6}$/.test(timestamp)) {
+             throw new Error(`Invalid timestamp format: ${timestamp}. Expected YYYYMMDD-HHMMSS.`);
+        }
+
+        const response = await fetch(`${this.baseUrl}/features/download/resources?type=list&timestamp=${encodeURIComponent(timestamp)}`, {
             headers: { 'Accept': 'application/json' },
             cache: 'no-store'
         });
@@ -84,6 +90,10 @@ export class EdgeWARNAPI {
      * @returns Array of historical cell states
      */
     async downloadCellHistory(cellId: number): Promise<any[]> {
+        if (!Number.isInteger(cellId) || cellId <= 0) {
+            throw new Error(`Invalid cell ID: ${cellId}. Expected a positive integer.`);
+        }
+
         const response = await fetch(`${this.baseUrl}/features/download/resources?type=cell&id=${cellId}`, {
             headers: { 'Accept': 'application/json' },
             cache: 'no-store'
