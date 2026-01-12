@@ -89,6 +89,7 @@ interface ControlButtonProps {
 function ControlButton({ onClick, icon, label, active }: ControlButtonProps) {
     return (
         <button 
+            type="button"
             onClick={onClick}
             aria-label={label}
             title={label}
