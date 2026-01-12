@@ -218,3 +218,6 @@ node_modules
 # Keeping it tracked is standard for many, but ignoring it prevents noise.
 # Uncomment if desired:
 # next-env.d.ts
+
+.jules
+.Jules
