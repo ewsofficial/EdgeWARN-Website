@@ -464,7 +464,7 @@ export default function LeafletMap() {
              {/* Sidebar */}
              <div className="w-80 flex-shrink-0 flex flex-col border-r border-gray-700 bg-gray-800">
                   <div className="p-4 border-b border-gray-700">
-                       <h1 className="text-xl font-bold mb-4 text-blue-400">Interactive Map</h1>
+                       <h1 className="text-xl font-bold mb-4 text-blue-400">EdgeWARN</h1>
                        
                        <div className="space-y-3">
                             {!isConnected ? (
