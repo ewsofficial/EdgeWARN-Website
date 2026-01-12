@@ -47,33 +47,35 @@ export default function SlidebarControl({
       </div>
 
       {/* Controls Row - Grid for alignment */}
-      <div className="grid grid-cols-5 gap-1">
-          <ControlButton 
-            onClick={() => onIndexChange(0)} 
-            icon={<SkipBack size={18} />} 
-            label="Earliest" 
-          />
-          <ControlButton 
-            onClick={() => onIndexChange(Math.max(0, currentIndex - 1))} 
-            icon={<ChevronLeft size={18} />} 
-            label="-1 Frame" 
-          />
-          <ControlButton 
-            onClick={onTogglePlay} 
-            icon={isPlaying ? <Pause size={18} /> : <Play size={18} />} 
-            label={isPlaying ? "Pause" : "Play"}
-            active={isPlaying}
-          />
-          <ControlButton 
-            onClick={() => onIndexChange(Math.min(totalFrames - 1, currentIndex + 1))} 
-            icon={<ChevronRight size={18} />} 
-            label="+1 Frame" 
-          />
-          <ControlButton 
-            onClick={() => onIndexChange(totalFrames - 1)} 
-            icon={<SkipForward size={18} />} 
-            label="Latest" 
-          />
+      <div className="bg-gray-800/80 border border-gray-700 rounded-xl p-1.5 shadow-sm backdrop-blur-sm">
+          <div className="grid grid-cols-5 gap-1">
+              <ControlButton 
+                onClick={() => onIndexChange(0)} 
+                icon={<SkipBack size={18} />} 
+                label="Earliest" 
+              />
+              <ControlButton 
+                onClick={() => onIndexChange(Math.max(0, currentIndex - 1))} 
+                icon={<ChevronLeft size={18} />} 
+                label="-1 Frame" 
+              />
+              <ControlButton 
+                onClick={onTogglePlay} 
+                icon={isPlaying ? <Pause size={18} /> : <Play size={18} />} 
+                label={isPlaying ? "Pause" : "Play"}
+                active={isPlaying}
+              />
+              <ControlButton 
+                onClick={() => onIndexChange(Math.min(totalFrames - 1, currentIndex + 1))} 
+                icon={<ChevronRight size={18} />} 
+                label="+1 Frame" 
+              />
+              <ControlButton 
+                onClick={() => onIndexChange(totalFrames - 1)} 
+                icon={<SkipForward size={18} />} 
+                label="Latest" 
+              />
+          </div>
       </div>
     </div>
   );

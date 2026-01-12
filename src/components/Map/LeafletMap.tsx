@@ -461,60 +461,77 @@ export default function LeafletMap() {
                 }
              `}</style>
 
-             {/* Settings Rail */}
-             <div className="w-14 flex-shrink-0 flex flex-col items-center py-4 bg-gray-950 border-r border-gray-800 z-20">
-                 <div className="mb-6 w-8 h-8 flex items-center justify-center opacity-80 hover:opacity-100 transition-opacity cursor-pointer">
-                     <img src="/assets/EdgeWARN.png" alt="EdgeWARN" className="w-full h-full object-contain drop-shadow-md rounded-xl" />
+             {/* Combined Left Panel Group - Fixed width to align Rail (3.5rem) + Sidebar (20rem) with Footer */}
+             <div className="flex flex-col flex-shrink-0 z-30 shadow-xl h-full w-[23.5rem] bg-gray-800">
+                 
+                 {/* Upper Section: Rail + Sidebar Content */}
+                 <div className="flex flex-1 min-h-0 overflow-hidden">
+                     
+                     {/* Settings Rail */}
+                     <div className="w-14 flex-shrink-0 flex flex-col bg-gray-950 border-r border-gray-800 z-20">
+                         {/* Logo Container - Aligned Height with Sidebar Header */}
+                         <div className="flex-shrink-0 h-14 flex items-center justify-center border-b border-gray-800">
+                             <div className="w-8 h-8 flex items-center justify-center opacity-80 hover:opacity-100 transition-opacity cursor-pointer">
+                                 <img src="/assets/EdgeWARN.png" alt="EdgeWARN" className="w-full h-full object-contain drop-shadow-md rounded-xl" />
+                             </div>
+                         </div>
+                         
+                         {/* Rail Content */}
+                         <div className="flex-1 flex flex-col items-center py-4">
+                            {/* Placeholder for future settings icons */}
+                         </div>
+                     </div>
+
+                     {/* Sidebar Content */}
+                     <div className="w-80 flex-shrink-0 flex flex-col border-r border-gray-700 bg-gray-800 overflow-y-auto">
+                          {/* Title Container - Aligned Height with Logo Container */}
+                          <div className="flex-shrink-0 h-14 flex items-center px-6 border-b border-gray-700">
+                               <h1 className="text-xl font-bold text-blue-400">EdgeWARN</h1>
+                          </div>
+
+                          <div className="p-4">
+                               <div className="space-y-3">
+                                    {!isConnected ? (
+                                        <div className="text-gray-500 text-sm italic text-center py-4 border border-gray-700/50 rounded bg-gray-800/50">
+                                            Waiting for connection...
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <div className="text-sm text-green-400 mb-2">Connected</div>
+                                            <select value={selectedProduct || ''} onChange={e => setSelectedProduct(e.target.value)}
+                                                className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm mb-2">
+                                                {products.map(p => <option key={p} value={p}>{p}</option>)}
+                                            </select>
+
+                                            <div className="space-y-2">
+                                                <label className="flex items-center text-xs text-gray-400 cursor-pointer">
+                                                    <input type="checkbox" checked={showRadar} onChange={e => setShowRadar(e.target.checked)} className="mr-2"/>
+                                                    Show Radar Layer
+                                                </label>
+                                            </div>
+                                        </>
+                                    )}
+                               </div>
+                          </div>
+                     </div>
                  </div>
-                 {/* Placeholder for future settings icons */}
-             </div>
 
-             {/* Sidebar */}
-             <div className="w-80 flex-shrink-0 flex flex-col border-r border-gray-700 bg-gray-800">
-                  <div className="p-4 border-b border-gray-700">
-                       <h1 className="text-xl font-bold mb-4 text-blue-400">EdgeWARN</h1>
-                       
-                       <div className="space-y-3">
-                            {!isConnected ? (
-                                <div className="text-gray-500 text-sm italic text-center py-4 border border-gray-700/50 rounded bg-gray-800/50">
-                                    Waiting for connection...
-                                </div>
-                            ) : (
-                                <>
-                                    <div className="text-sm text-green-400 mb-2">Connected</div>
-                                    <select value={selectedProduct || ''} onChange={e => setSelectedProduct(e.target.value)}
-                                        className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm mb-2">
-                                        {products.map(p => <option key={p} value={p}>{p}</option>)}
-                                    </select>
-
-                                    <div className="space-y-2">
-                                        <label className="flex items-center text-xs text-gray-400 cursor-pointer">
-                                            <input type="checkbox" checked={showRadar} onChange={e => setShowRadar(e.target.checked)} className="mr-2"/>
-                                            Show Radar Layer
-                                        </label>
-                                    </div>
-                                </>
-                            )}
-                       </div>
-                  </div>
-
-                  {isConnected && (
-
-
-
-                      <div className="flex-1 flex flex-col justify-end p-4 space-y-4">
-                           <SlidebarControl 
-                               currentIndex={currentIndex}
-                               totalFrames={timestamps.length}
-                               onIndexChange={setCurrentIndex}
-                               isPlaying={isPlaying}
-                               onTogglePlay={() => setIsPlaying(!isPlaying)}
-                           />
+                 {/* Playback Control Footer - Spans Full Width (Rail + Sidebar) */}
+                 {isConnected && (
+                      <div className="flex-shrink-0 bg-gray-900 border-t border-gray-700 border-r p-4 z-40">
+                           <div className="bg-gray-900/40 border border-gray-700/30 rounded-2xl p-3 shadow-inner backdrop-blur-sm">
+                               <SlidebarControl 
+                                   currentIndex={currentIndex}
+                                   totalFrames={timestamps.length}
+                                   onIndexChange={setCurrentIndex}
+                                   isPlaying={isPlaying}
+                                   onTogglePlay={() => setIsPlaying(!isPlaying)}
+                               />
+                           </div>
                            
-                           {error && <div className="text-xs text-red-500 italic text-center">{error}</div>}
+                           {error && <div className="text-xs text-red-500 italic text-center mt-2">{error}</div>}
                       </div>
-
-                  )}
+                 )}
              </div>
 
              {/* Map Area */}
