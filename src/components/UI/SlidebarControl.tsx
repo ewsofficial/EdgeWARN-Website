@@ -17,7 +17,6 @@ interface SlidebarControlProps {
   isPlaying: boolean;
   onTogglePlay: () => void;
   className?: string;
-  timestamp?: string;
 }
 
 export default function SlidebarControl({
@@ -26,8 +25,7 @@ export default function SlidebarControl({
   onIndexChange,
   isPlaying,
   onTogglePlay,
-  className = '',
-  timestamp
+  className = ''
 }: SlidebarControlProps) {
   
   const handleRangeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
