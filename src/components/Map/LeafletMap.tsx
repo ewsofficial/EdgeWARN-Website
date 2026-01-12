@@ -9,6 +9,7 @@ import SlidebarControl from '../UI/SlidebarControl';
 import { MapToolbar } from '../UI/MapToolbar';
 import { DistanceTool } from '../UI/DistanceTool';
 import { CircleTool } from '../UI/CircleTool';
+import ConnectionModal from '../UI/ConnectionModal';
 
 interface TimestampStr {
     date: string;
@@ -362,12 +363,18 @@ export default function LeafletMap() {
     }, [currentIndex, isConnected, loadData, timestamps.length]); 
 
     // Connect Handler
-    const handleConnect = async () => {
+    const handleConnect = async (overrideApiUrl?: string, overrideEwmrsUrl?: string) => {
+        const finalApiUrl = overrideApiUrl || apiUrl;
+        const finalEwmrsUrl = overrideEwmrsUrl || ewmrsUrl;
+        
+        if (overrideApiUrl) setApiUrl(overrideApiUrl);
+        if (overrideEwmrsUrl) setEwmrsUrl(overrideEwmrsUrl);
+
         setLoading(true);
         setError(null);
         try {
-             apiRef.current = new EdgeWARNAPI(apiUrl);
-             ewmrsRef.current = new EWMRSAPI(ewmrsUrl);
+             apiRef.current = new EdgeWARNAPI(finalApiUrl);
+             ewmrsRef.current = new EWMRSAPI(finalEwmrsUrl);
 
              const ts = await apiRef.current.fetchTimestamps();
              setTimestamps(ts.sort());
@@ -431,8 +438,20 @@ export default function LeafletMap() {
     const currentTs = timestamps[currentIndex] || '';
     const { date, time } = formatTimeLabel(currentTs);
 
+    console.log('LeafletMap render: isConnected=', isConnected, 'loading=', loading);
+
     return (
         <div className="flex bg-gray-900 text-gray-100 h-screen font-sans overflow-hidden">
+             {/* Connection Modal - must be at root level */}
+             <ConnectionModal
+                 isOpen={!isConnected}
+                 loading={loading}
+                 error={error}
+                 initialApiUrl={apiUrl}
+                 initialEwmrsUrl={ewmrsUrl}
+                 onConnect={handleConnect}
+             />
+
              {/* Styles for pixelated */}
              <style jsx global>{`
                 .pixelated-overlay {
@@ -449,23 +468,9 @@ export default function LeafletMap() {
                        
                        <div className="space-y-3">
                             {!isConnected ? (
-                                <>
-                                    <div>
-                                        <label className="block text-xs text-gray-400 mb-1">API URL</label>
-                                        <input type="text" value={apiUrl} onChange={e => setApiUrl(e.target.value)} 
-                                            className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs text-gray-400 mb-1">EWMRS URL</label>
-                                        <input type="text" value={ewmrsUrl} onChange={e => setEwmrsUrl(e.target.value)} 
-                                            className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm" />
-                                    </div>
-                                    <button onClick={handleConnect} disabled={loading}
-                                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded text-sm disabled:opacity-50">
-                                        {loading ? 'Connecting...' : 'Connect'}
-                                    </button>
-                                    {error && <div className="text-red-400 text-xs mt-2">{error}</div>}
-                                </>
+                                <div className="text-gray-500 text-sm italic text-center py-4 border border-gray-700/50 rounded bg-gray-800/50">
+                                    Waiting for connection...
+                                </div>
                             ) : (
                                 <>
                                     <div className="text-sm text-green-400 mb-2">Connected</div>
