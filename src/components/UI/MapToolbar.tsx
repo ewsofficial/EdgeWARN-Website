@@ -13,8 +13,10 @@ interface ToolButtonProps {
 export function ToolButton({ icon, label, active, onClick, disabled }: ToolButtonProps) {
     return (
         <button
+            type="button"
             onClick={onClick}
             disabled={disabled}
+            aria-label={label}
             title={label}
             className={`
                 flex items-center justify-center
