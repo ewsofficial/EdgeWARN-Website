@@ -461,6 +461,14 @@ export default function LeafletMap() {
                 }
              `}</style>
 
+             {/* Settings Rail */}
+             <div className="w-14 flex-shrink-0 flex flex-col items-center py-4 bg-gray-950 border-r border-gray-800 z-20">
+                 <div className="mb-6 w-8 h-8 flex items-center justify-center opacity-80 hover:opacity-100 transition-opacity cursor-pointer">
+                     <img src="/assets/EdgeWARN.png" alt="EdgeWARN" className="w-full h-full object-contain drop-shadow-md rounded-xl" />
+                 </div>
+                 {/* Placeholder for future settings icons */}
+             </div>
+
              {/* Sidebar */}
              <div className="w-80 flex-shrink-0 flex flex-col border-r border-gray-700 bg-gray-800">
                   <div className="p-4 border-b border-gray-700">
