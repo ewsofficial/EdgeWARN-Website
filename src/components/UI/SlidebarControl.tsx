@@ -17,7 +17,6 @@ interface SlidebarControlProps {
   isPlaying: boolean;
   onTogglePlay: () => void;
   className?: string;
-  timestamp?: string;
 }
 
 export default function SlidebarControl({
@@ -26,8 +25,7 @@ export default function SlidebarControl({
   onIndexChange,
   isPlaying,
   onTogglePlay,
-  className = '',
-  timestamp
+  className = ''
 }: SlidebarControlProps) {
   
   const handleRangeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -92,6 +90,8 @@ function ControlButton({ onClick, icon, label, active }: ControlButtonProps) {
     return (
         <button 
             onClick={onClick}
+            aria-label={label}
+            title={label}
             className={`flex flex-col items-center justify-center p-2 rounded-lg transition-all duration-200 group ${active ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'hover:bg-gray-800 text-gray-400 hover:text-gray-200 border border-transparent'}`}
         >
             <div className={`p-1.5 rounded-md ${active ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'bg-gray-800 group-hover:bg-gray-700 text-gray-300'}`}>
