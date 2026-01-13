@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css'; // Ensure CSS is imported
+import Link from 'next/link';
 import { EdgeWARNAPI } from '@/utils/edgewarn-api';
 import { Map as MapIcon, Wifi, List, Settings } from 'lucide-react';
 import { EWMRSAPI } from '@/utils/ewmrs-api';
@@ -644,9 +645,9 @@ export default function LeafletMap() {
                      <div className="w-14 flex-shrink-0 flex flex-col bg-gray-950 border-r border-gray-800 z-20">
                          {/* Logo Container - Aligned Height with Sidebar Header */}
                          <div className="flex-shrink-0 h-14 flex items-center justify-center border-b border-gray-800">
-                             <div className="w-8 h-8 flex items-center justify-center opacity-80 hover:opacity-100 transition-opacity cursor-pointer">
+                             <Link href="/" className="w-8 h-8 flex items-center justify-center opacity-80 hover:opacity-100 transition-opacity cursor-pointer">
                                  <img src="/assets/EdgeWARN.png" alt="EdgeWARN" className="w-full h-full object-contain drop-shadow-md rounded-xl" />
-                             </div>
+                             </Link>
                          </div>
                          
                          {/* Rail Content */}
