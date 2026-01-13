@@ -13,6 +13,7 @@ import { CircleTool } from '../UI/CircleTool';
 import ConnectionModal from '../UI/ConnectionModal';
 import MapSettingsPanel from '../UI/MapSettingsPanel';
 import ConnectionSettingsPanel from '../UI/ConnectionSettingsPanel';
+import CellListPanel from '../UI/CellListPanel';
 
 interface LayerState {
     visible: boolean;
@@ -50,6 +51,7 @@ export default function LeafletMap() {
     const [products, setProducts] = useState<string[]>([]);
     const [activeLayers, setActiveLayers] = useState<Record<string, LayerState>>({});
     const [productTimestamps, setProductTimestamps] = useState<Record<string, string[]>>({}); // Cache timestamps per product
+    const [currentCells, setCurrentCells] = useState<any[]>([]);
 
     const [activePanel, setActivePanel] = useState<'map' | 'connection' | 'list' | 'settings' | null>(null);
 
@@ -201,6 +203,12 @@ export default function LeafletMap() {
              else if (data.features) features = data.features;
              else if (Array.isArray(data)) features = data;
 
+             // Only include cells that have valid geometry (bbox) to match what is drawn on map
+             const visibleFeatures = features.filter((cell: any) => 
+                cell.bbox && Array.isArray(cell.bbox) && cell.bbox.length > 0
+             );
+             setCurrentCells(visibleFeatures);
+
              const polyStyle = {
                 color: "#f87171", // red-400
                 weight: 2,
@@ -224,13 +232,40 @@ export default function LeafletMap() {
                       });
                       
                       const polygon = L.polygon(coords, polyStyle);
-                      if (cell.properties) {
-                           polygon.on('click', () => {
-                                const props = { ...cell.properties, id: cell.id };
-                                setSelectedCellInfo(JSON.stringify(props, null, 2));
-                           });
-                      }
-                      polygon.addTo(layerGroup);
+                       
+                       // Helper to get modules from either root or properties
+                       const modules = cell.modules || cell.properties?.modules;
+
+                       if (cell.properties) {
+                            polygon.on('click', () => {
+                                 const props = { ...cell.properties, id: cell.id };
+                                 setSelectedCellInfo(JSON.stringify(props, null, 2));
+                            });
+
+                            // Render StormCast Forecast Cones
+                            if (modules) {
+                                const stormCastData = modules["StormCast"] || modules["stormcast"];
+                                if (stormCastData && stormCastData.forecast_cones && Array.isArray(stormCastData.forecast_cones)) {
+                                    stormCastData.forecast_cones.forEach((cone: any) => {
+                                        // Check if valid
+                                        const validCenter = cone.center && Array.isArray(cone.center) && cone.center.length === 2;
+                                        const validRadius = typeof cone.radius === 'number';
+                                        
+                                        if (validCenter && validRadius) {
+                                            const circle = L.circle(cone.center, {
+                                                color: "#f97316", // orange-500
+                                                weight: 1,
+                                                fillOpacity: 0.1,
+                                                dashArray: '4, 4',
+                                                interactive: false
+                                            });
+                                            circle.addTo(layerGroup);
+                                        }
+                                    });
+                                }
+                            }
+                       }
+                       polygon.addTo(layerGroup);
                  }
             });
 
@@ -529,6 +564,39 @@ export default function LeafletMap() {
         }));
     };
 
+    const handleCellClick = (cell: any) => {
+        if (!mapInstanceRef.current || !cell.bbox) return;
+
+        // Convert bbox to latlng compatible bounds
+        // bbox is usually [minX, minY, maxX, maxY] but here it seems to be array of points?
+        // Wait, in loadData: "coords: L.LatLngExpression[] = cell.bbox.map..."
+        // So cell.bbox is an array of [val1, val2] points.
+        
+        try {
+            const coords: L.LatLngExpression[] = cell.bbox.map((p: number[]) => {
+                let val1 = p[0];
+                let val2 = p[1];
+                let lat, lon;
+                if (Math.abs(val1) > 90) {
+                     lon = val1; lat = val2;
+                } else {
+                     lat = val1; lon = val2;
+                }
+                if (lon > 180) lon -= 360; 
+                return [lat, lon] as [number, number];
+           });
+           
+           const bounds = L.latLngBounds(coords);
+           mapInstanceRef.current.flyToBounds(bounds, {
+               padding: [50, 50],
+               maxZoom: 12,
+               duration: 1.5
+           });
+        } catch (e) {
+            console.warn("Failed to zoom to cell", e);
+        }
+    };
+
     const currentTs = timestamps[currentIndex] || '';
     const { date, time } = formatTimeLabel(currentTs);
 
@@ -631,8 +699,16 @@ export default function LeafletMap() {
                               />
                           )}
                           
-                          {/* 3. LIST / SETTINGS Placeholder */}
-                          {(activePanel === 'list' || activePanel === 'settings') && (
+                          {/* 3. CELL LIST PANEL */}
+                          {(activePanel === 'list') && (
+                              <CellListPanel 
+                                  cells={currentCells} 
+                                  onCellClick={handleCellClick}
+                              />
+                          )}
+
+                          {/* 4. SETTINGS Placeholder */}
+                          {(activePanel === 'settings') && (
                               <div className="p-4 text-gray-400 italic text-center text-sm">
                                   Not implemented yet
                               </div>
