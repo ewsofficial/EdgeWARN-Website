@@ -1,22 +1,24 @@
 import React, { useState } from 'react';
 import { List, ChevronDown, ChevronRight } from 'lucide-react';
+import { Cell } from '@/types';
 
 interface CellListPanelProps {
-    cells: any[];
-    onCellClick: (cell: any) => void;
+    cells: Cell[];
+    onCellClick: (cell: Cell) => void;
 }
 
 export default function CellListPanel({ cells, onCellClick }: CellListPanelProps) {
     const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
-    const toggleExpand = (id: string, e: React.MouseEvent) => {
+    const toggleExpand = (id: string | number, e: React.MouseEvent) => {
+        const idStr = String(id);
         e.stopPropagation();
         setExpandedIds(prev => {
             const next = new Set(prev);
-            if (next.has(id)) {
-                next.delete(id);
+            if (next.has(idStr)) {
+                next.delete(idStr);
             } else {
-                next.add(id);
+                next.add(idStr);
             }
             return next;
         });
@@ -36,7 +38,7 @@ export default function CellListPanel({ cells, onCellClick }: CellListPanelProps
                     </div>
                 ) : (
                     cells.map((cell) => {
-                        const isExpanded = expandedIds.has(cell.id);
+                        const isExpanded = expandedIds.has(String(cell.id));
                         return (
                             <div
                                 key={cell.id}

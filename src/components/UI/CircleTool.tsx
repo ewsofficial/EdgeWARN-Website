@@ -32,7 +32,7 @@ function generateCirclePoints(center: L.LatLng, radiusMeters: number, numPoints:
 
 export function CircleTool({ map }: CircleToolProps) {
     const [active, setActive] = useState(false);
-    const [radiusKm, setRadiusKm] = useState(0);
+    // const [radiusKm, setRadiusKm] = useState(0); // Unused
     const circleRef = useRef<L.Polygon | null>(null);
     const radiusLineRef = useRef<L.Polyline | null>(null);
     const radiusLabelRef = useRef<L.Marker | null>(null);
@@ -56,7 +56,7 @@ export function CircleTool({ map }: CircleToolProps) {
         centerRef.current = null;
         currentPointRef.current = null;
         isDrawingRef.current = false;
-        setRadiusKm(0);
+        // setRadiusKm(0);
     }, [map]);
 
     const updateRadiusDisplay = useCallback((center: L.LatLng, point: L.LatLng, radius: number) => {
@@ -98,7 +98,7 @@ export function CircleTool({ map }: CircleToolProps) {
             }).addTo(map);
         }
         
-        setRadiusKm(radiusKmValue);
+        // setRadiusKm(radiusKmValue);
     }, [map]);
 
     const handleMouseDown = useCallback((e: L.LeafletMouseEvent) => {

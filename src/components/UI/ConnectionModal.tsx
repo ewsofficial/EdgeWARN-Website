@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 
 interface ConnectionModalProps {
     isOpen: boolean;
@@ -21,12 +21,6 @@ export default function ConnectionModal({
 }: ConnectionModalProps) {
     const [apiUrl, setApiUrl] = useState(initialApiUrl);
     const [ewmrsUrl, setEwmrsUrl] = useState(initialEwmrsUrl);
-
-    // Sync state if props change (though usually these are just initials)
-    useEffect(() => {
-        setApiUrl(initialApiUrl);
-        setEwmrsUrl(initialEwmrsUrl);
-    }, [initialApiUrl, initialEwmrsUrl]);
 
     if (!isOpen) return null;
 
