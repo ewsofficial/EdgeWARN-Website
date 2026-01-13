@@ -488,22 +488,42 @@ export default function LeafletMap() {
                  setProducts(prods);
                  
                  // Initialize activeLayers
-                 // Default to Reflectivity (CompRefQC) visible if available
+                 // Default to Reflectivity (CompRefQC) visible if available, or preserve existing settings
                  const initialLayers: Record<string, LayerState> = {};
                  prods.forEach(p => {
-                     initialLayers[p] = { 
-                         visible: p === 'CompRefQC' || p === prods[0], 
-                         opacity: 0.6 
-                     };
+                     if (activeLayers[p]) {
+                         initialLayers[p] = activeLayers[p];
+                     } else {
+                         initialLayers[p] = {
+                             visible: p === 'CompRefQC' || p === prods[0],
+                             opacity: 0.6
+                         };
+                     }
                  });
                  setActiveLayers(initialLayers);
 
-                 // Fetch timestamps for the initial visible one
-                 const initialProd = prods.includes('CompRefQC') ? 'CompRefQC' : prods[0];
-                 if (initialProd) {
-                     const prodTs = await ewmrsRef.current.getProductTimestamps(initialProd);
-                     setProductTimestamps(prev => ({ ...prev, [initialProd]: prodTs.sort() }));
-                 }
+                 // Fetch timestamps for all visible products
+                 const visibleProds = Object.keys(initialLayers).filter(k => initialLayers[k].visible);
+
+                 const tsPromises = visibleProds.map(async p => {
+                     try {
+                         const ts = await ewmrsRef.current!.getProductTimestamps(p);
+                         return { p, ts };
+                     } catch (e) {
+                         console.warn(`Failed to update timestamps for ${p}`, e);
+                         return null;
+                     }
+                 });
+
+                 const results = await Promise.all(tsPromises);
+
+                 setProductTimestamps(prev => {
+                     const next = { ...prev };
+                     results.forEach(r => {
+                         if (r) next[r.p] = r.ts.sort();
+                     });
+                     return next;
+                 });
              } catch (e) {
                  console.warn("EWMRS connection failed", e);
              }
