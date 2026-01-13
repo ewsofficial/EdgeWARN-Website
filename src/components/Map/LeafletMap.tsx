@@ -235,10 +235,15 @@ export default function LeafletMap() {
                        
                        // Helper to get modules from either root or properties
                        const modules = cell.modules || cell.properties?.modules;
+                       
+                       // Debugging StormCast Data
+                       if (modules && (modules["StormCast"] || modules["stormcast"])) {
+                            // console.log(`Cell ${cell.id} has StormCast module`, modules["StormCast"] || modules["stormcast"]);
+                       }
 
                        if (cell.properties) {
                             polygon.on('click', () => {
-                                 const props = { ...cell.properties, id: cell.id };
+                                 const props = { ...cell.properties, id: cell.id, modules };
                                  setSelectedCellInfo(JSON.stringify(props, null, 2));
                             });
 
@@ -252,14 +257,20 @@ export default function LeafletMap() {
                                         const validRadius = typeof cone.radius === 'number';
                                         
                                         if (validCenter && validRadius) {
-                                            const circle = L.circle(cone.center, {
+                                            // Normalize longitude if needed (0-360 -> -180-180)
+                                            let [cLat, cLon] = cone.center;
+                                            if (cLon > 180) cLon -= 360;
+                                            
+                                            const circle = L.circle([cLat, cLon], {
                                                 color: "#f97316", // orange-500
-                                                weight: 1,
+                                                weight: 2,
                                                 fillOpacity: 0.1,
                                                 dashArray: '4, 4',
                                                 interactive: false
                                             });
                                             circle.addTo(layerGroup);
+                                        } else {
+                                            // console.warn("Invalid cone data:", cone);
                                         }
                                     });
                                 }
