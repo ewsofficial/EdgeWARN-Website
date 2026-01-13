@@ -1,5 +1,5 @@
-import React from 'react';
-import { List } from 'lucide-react';
+import React, { useState } from 'react';
+import { List, ChevronDown, ChevronRight } from 'lucide-react';
 
 interface CellListPanelProps {
     cells: any[];
@@ -7,6 +7,21 @@ interface CellListPanelProps {
 }
 
 export default function CellListPanel({ cells, onCellClick }: CellListPanelProps) {
+    const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+    const toggleExpand = (id: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        setExpandedIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) {
+                next.delete(id);
+            } else {
+                next.add(id);
+            }
+            return next;
+        });
+    };
+
     return (
         <div className="h-full flex flex-col bg-gray-800 text-gray-200 p-4 w-full">
             <div className="flex items-center gap-2 mb-6 border-b border-gray-700 pb-4">
@@ -20,17 +35,35 @@ export default function CellListPanel({ cells, onCellClick }: CellListPanelProps
                         No active cells
                     </div>
                 ) : (
-                    cells.map((cell) => (
-                        <div 
-                            key={cell.id} 
-                            onClick={() => onCellClick(cell)}
-                            className="p-3 rounded-lg border border-gray-700 bg-gray-900/50 hover:bg-gray-800 transition-colors cursor-pointer"
-                        >
-                            <span className="text-sm font-mono text-gray-300">
-                                {cell.id}
-                            </span>
-                        </div>
-                    ))
+                    cells.map((cell) => {
+                        const isExpanded = expandedIds.has(cell.id);
+                        return (
+                            <div
+                                key={cell.id}
+                                className="rounded-lg border border-gray-700 bg-gray-900/50 overflow-hidden"
+                            >
+                                <div
+                                    onClick={() => onCellClick(cell)}
+                                    className="p-3 flex items-center justify-between hover:bg-gray-800 transition-colors cursor-pointer"
+                                >
+                                    <span className="text-sm font-mono text-gray-300">
+                                        {cell.id}
+                                    </span>
+                                    <button
+                                        onClick={(e) => toggleExpand(cell.id, e)}
+                                        className="text-gray-400 hover:text-white p-1 rounded hover:bg-gray-700 transition-colors"
+                                    >
+                                        {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                                    </button>
+                                </div>
+                                {isExpanded && (
+                                    <div className="p-3 bg-gray-950/50 border-t border-gray-800 text-xs font-mono text-gray-400 overflow-x-auto">
+                                        <pre>{JSON.stringify(cell.properties, null, 2)}</pre>
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })
                 )}
             </div>
         </div>
