@@ -4,12 +4,20 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css'; // Ensure CSS is imported
 import { EdgeWARNAPI } from '@/utils/edgewarn-api';
+import { Map as MapIcon, Wifi, List, Settings } from 'lucide-react';
 import { EWMRSAPI } from '@/utils/ewmrs-api';
 import SlidebarControl from '../UI/SlidebarControl';
 import { MapToolbar } from '../UI/MapToolbar';
 import { DistanceTool } from '../UI/DistanceTool';
 import { CircleTool } from '../UI/CircleTool';
 import ConnectionModal from '../UI/ConnectionModal';
+import MapSettingsPanel from '../UI/MapSettingsPanel';
+import ConnectionSettingsPanel from '../UI/ConnectionSettingsPanel';
+
+interface LayerState {
+    visible: boolean;
+    opacity: number;
+}
 
 interface TimestampStr {
     date: string;
@@ -22,7 +30,8 @@ export default function LeafletMap() {
     const apiRef = useRef<EdgeWARNAPI | null>(null);
     const ewmrsRef = useRef<EWMRSAPI | null>(null);
     const currentLayerRef = useRef<L.FeatureGroup | null>(null);
-    const imageOverlayRef = useRef<L.ImageOverlay | null>(null);
+    // Changed to Map for multiple overlays
+    const overlayLayersRef = useRef<Map<string, L.ImageOverlay>>(new Map()); 
     const contourLayerRef = useRef<L.Rectangle | null>(null);
     const boundsLayerRef = useRef<L.Rectangle | null>(null);
 
@@ -39,12 +48,15 @@ export default function LeafletMap() {
     
     // EWMRS State
     const [products, setProducts] = useState<string[]>([]);
-    const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
-    const [productTimestamps, setProductTimestamps] = useState<string[]>([]);
+    const [activeLayers, setActiveLayers] = useState<Record<string, LayerState>>({});
+    const [productTimestamps, setProductTimestamps] = useState<Record<string, string[]>>({}); // Cache timestamps per product
+
+    const [activePanel, setActivePanel] = useState<'map' | 'connection' | 'list' | 'settings' | null>(null);
 
     
     // Toggles
-    const [showRadar, setShowRadar] = useState(true);
+    // const [showRadar, setShowRadar] = useState(true); // Removed in favor of activeLayers
+    // Hardcoded defaults per request: Bounds=Off, Contour=Off, Crisp=On
     // Hardcoded defaults per request: Bounds=Off, Contour=Off, Crisp=On
     const showBounds = false;
     const showContour = false;
@@ -57,40 +69,51 @@ export default function LeafletMap() {
 
     // Initialization
     useEffect(() => {
-        if (!mapContainerRef.current || mapInstanceRef.current) return;
+        // Prevent double init
+        if (mapInstanceRef.current) return;
 
-        // Init Map with EPSG:4326
-        const map = L.map(mapContainerRef.current, {
-            crs: L.CRS.EPSG4326,
-            center: [37.8, -96],
-            zoom: 4,
-            minZoom: 3
-        });
+        // Delay init slightly to ensure container is ready and layout has settled
+        const timer = setTimeout(() => {
+            if (!mapContainerRef.current) return;
+            if (mapInstanceRef.current) return;
 
-        // OSM WMS via Terrestris
-        L.tileLayer.wms('https://ows.terrestris.de/osm/service', {
-            layers: 'OSM-WMS',
-            format: 'image/png',
-            transparent: false,
-            version: '1.3.0',
-            attribution: '&copy; terrestris &copy; OpenStreetMap',
-        }).addTo(map);
+            // Init Map with EPSG:4326
+            const map = L.map(mapContainerRef.current, {
+                crs: L.CRS.EPSG4326,
+                center: [37.8, -96],
+                zoom: 4,
+                minZoom: 3,
+                zoomControl: false // Move zoom control if needed, or keep default
+            });
 
-        mapInstanceRef.current = map;
+            // OSM WMS via Terrestris
+            L.tileLayer.wms('https://ows.terrestris.de/osm/service', {
+                layers: 'OSM-WMS',
+                format: 'image/png',
+                transparent: false,
+                version: '1.3.0',
+                attribution: '&copy; terrestris &copy; OpenStreetMap',
+            }).addTo(map);
 
-        // Setup Reference Bounds Layer
-        const referenceBounds: L.LatLngBoundsExpression = [[20, -130], [55, -60]];
-        boundsLayerRef.current = L.rectangle(referenceBounds, {
-            color: "#3b82f6", // blue
-            weight: 1,
-            fill: false,
-            dashArray: '4, 4'
-        });
+            mapInstanceRef.current = map;
+
+            // Setup Reference Bounds Layer
+            const referenceBounds: L.LatLngBoundsExpression = [[20, -130], [55, -60]];
+            boundsLayerRef.current = L.rectangle(referenceBounds, {
+                color: "#3b82f6", // blue
+                weight: 1,
+                fill: false,
+                dashArray: '4, 4'
+            });
+        }, 100);
 
         // Cleanup
         return () => {
-             map.remove();
-             mapInstanceRef.current = null;
+             clearTimeout(timer);
+             if (mapInstanceRef.current) {
+                 mapInstanceRef.current.remove();
+                 mapInstanceRef.current = null;
+             }
         };
     }, []);
 
@@ -162,7 +185,7 @@ export default function LeafletMap() {
         setLoading(true);
         setError(null);
 
-        // 1. Load Storm Cells
+        // 1. Load Storm Cells (same as before)
         try {
              // Removing old layer
              if (currentLayerRef.current) {
@@ -221,73 +244,97 @@ export default function LeafletMap() {
              }
         }
 
-        // 2. Render Overlay (Radar)
-        // Cleanup existing
-        if (imageOverlayRef.current) {
-            if ((imageOverlayRef.current as any)._blobUrl) {
-                URL.revokeObjectURL((imageOverlayRef.current as any)._blobUrl);
+        // 2. Render Overlays (Multiple)
+        
+        // Identify which layers are needed
+        const neededProducts = Object.keys(activeLayers).filter(k => activeLayers[k].visible);
+        const mapOverlays = overlayLayersRef.current;
+
+        // Cleanup: Remove layers that are no longer needed
+        for (const [prod, overlay] of mapOverlays.entries()) {
+            if (!neededProducts.includes(prod)) {
+                if ((overlay as any)._blobUrl) {
+                    URL.revokeObjectURL((overlay as any)._blobUrl);
+                }
+                map.removeLayer(overlay);
+                mapOverlays.delete(prod);
             }
-            map.removeLayer(imageOverlayRef.current);
-            imageOverlayRef.current = null;
-        }
-        if (contourLayerRef.current) {
-            map.removeLayer(contourLayerRef.current);
-            contourLayerRef.current = null;
         }
 
-        if (showRadar && selectedProduct && ewmrsRef.current && productTimestamps.length > 0) {
-             let bestTimestamp = ts;
-             const match = findClosestTimestamp(ts, productTimestamps);
-             if (match) {
-                 bestTimestamp = match;
-             } else {
-                 // console.warn("No matching radar render found");
-                 setLoading(false);
-                 return; // Skip rendering overlay
-             }
+        // Render needed layers
+        if (ewmrsRef.current) {
+            const baseSouth = 20;
+            const baseNorth = 55;
+            const baseWest = -130;
+            const baseEast = -60;
+            const bounds: L.LatLngBoundsExpression = [[baseSouth, baseWest], [baseNorth, baseEast]];
 
-             const baseSouth = 20;
+            for (const prod of neededProducts) {
+                const prodTsList = productTimestamps[prod] || [];
+                const bestTimestamp = findClosestTimestamp(ts, prodTsList);
+                if (!bestTimestamp) continue;
+
+                const directUrl = ewmrsRef.current.getRenderUrl(prod, bestTimestamp);
+                
+                // If we already have this layer, update opacity/url?
+                // Leaflet ImageOverlay is tricky to update URL dynamically seamlessly, 
+                // but we can check if it's the same URL. 
+                // For simplicity/cleanness, if timestamp changed, re-create. 
+                // Optim: check if current overlay has same 'timestamp' metadata? 
+                
+                // Let's just fetch and replace for now to ensure sync.
+                try {
+                     const res = await fetch(directUrl);
+                     if (res.ok) {
+                         const blob = await res.blob();
+                         const objectUrl = URL.createObjectURL(blob);
+                         
+                         // Check if existing
+                         if (mapOverlays.has(prod)) {
+                             const old = mapOverlays.get(prod)!;
+                             map.removeLayer(old); 
+                             if ((old as any)._blobUrl) URL.revokeObjectURL((old as any)._blobUrl);
+                         }
+
+                         const opacity = activeLayers[prod].opacity;
+                         const overlay = L.imageOverlay(objectUrl, bounds, { opacity }).addTo(map);
+                         overlay.bringToBack();
+                         mapOverlays.set(prod, overlay);
+                         (overlay as any)._blobUrl = objectUrl;
+
+                         if (crisp) {
+                             const el = overlay.getElement();
+                             if (el) el.classList.add('pixelated-overlay');
+                         }
+                     }
+                } catch (err) {
+                     console.warn(`Failed to load overlay for ${prod}`, err);
+                }
+            }
+        }
+
+        if (showContour) {
+            // ... contour logic ...
+             if (contourLayerRef.current) {
+                map.removeLayer(contourLayerRef.current);
+                contourLayerRef.current = null;
+            }
+             const baseSouth = 20; // Re-declare or move out
              const baseNorth = 55;
              const baseWest = -130;
              const baseEast = -60;
              const bounds: L.LatLngBoundsExpression = [[baseSouth, baseWest], [baseNorth, baseEast]];
-
-             const directUrl = ewmrsRef.current.getRenderUrl(selectedProduct, bestTimestamp);
              
-             try {
-                const res = await fetch(directUrl);
-                if (res.ok) {
-                    const blob = await res.blob();
-                    const objectUrl = URL.createObjectURL(blob);
-                    
-                    const overlay = L.imageOverlay(objectUrl, bounds, { opacity: 0.6 }).addTo(map);
-                    overlay.bringToBack();
-                    imageOverlayRef.current = overlay;
-                    
-                    // Store URL for cleanup
-                    (overlay as any)._blobUrl = objectUrl;
-
-                    if (crisp) {
-                        const el = overlay.getElement();
-                        if (el) el.classList.add('pixelated-overlay');
-                    }
-                }
-             } catch (err) {
-                console.warn("Failed to load radar image via fetch", err);
-             }
-
-             if (showContour) {
-                 contourLayerRef.current = L.rectangle(bounds, {
-                     color: "#f59e0b",
-                     weight: 2,
-                     fill: false
-                 }).addTo(map);
-             }
+             contourLayerRef.current = L.rectangle(bounds, {
+                 color: "#f59e0b",
+                 weight: 2,
+                 fill: false
+             }).addTo(map);
         }
         
         setLoading(false);
 
-    }, [timestamps, showRadar, selectedProduct, productTimestamps, crisp, showContour]); // Deps
+    }, [timestamps, activeLayers, productTimestamps, crisp, showContour]); // Update deps
 
     // Auto-refresh logic (every 30 seconds)
     useEffect(() => {
@@ -317,24 +364,34 @@ export default function LeafletMap() {
                 console.warn("Auto-refresh EdgeWARN failed", err);
             }
 
-            // 2. Check EWMRS timestamps (if product selected)
-            if (selectedProduct && ewmrsRef.current) {
-                try {
-                     const latestProdTs = await ewmrsRef.current.getProductTimestamps(selectedProduct);
-                     if (latestProdTs && latestProdTs.length > 0) {
-                        const sortedLatest = [...latestProdTs].sort();
-                        const sortedPrev = [...productTimestamps].sort();
-                        
-                        const isNew = sortedLatest.length !== sortedPrev.length || 
-                                      sortedLatest[sortedLatest.length - 1] !== sortedPrev[sortedPrev.length - 1];
-                        
-                        if (isNew) {
-                            setProductTimestamps(sortedLatest);
-                            hasGlobalUpdate = true;
+            // 2. Check EWMRS timestamps (for all visible products)
+            // We iterate over all products that are visible or have been visible to keep cache fresh?
+            // For now, let's just refresh visible ones
+            const visibleProds = Object.keys(activeLayers).filter(k => activeLayers[k].visible);
+            
+            for (const prod of visibleProds) {
+                if (ewmrsRef.current) {
+                    try {
+                        const latestProdTs = await ewmrsRef.current.getProductTimestamps(prod);
+                        if (latestProdTs && latestProdTs.length > 0) {
+                            const sortedLatest = [...latestProdTs].sort();
+                            const currentCache = productTimestamps[prod] || [];
+                            const sortedPrev = [...currentCache].sort();
+                            
+                            const isNew = sortedLatest.length !== sortedPrev.length || 
+                                          sortedLatest[sortedLatest.length - 1] !== sortedPrev[sortedPrev.length - 1];
+                            
+                            if (isNew) {
+                                setProductTimestamps(prev => ({
+                                    ...prev,
+                                    [prod]: sortedLatest
+                                }));
+                                hasGlobalUpdate = true;
+                            }
                         }
-                     }
-                } catch(err) {
-                    console.warn("Auto-refresh EWMRS failed", err);
+                    } catch(err) {
+                        console.warn(`Auto-refresh EWMRS failed for ${prod}`, err);
+                    }
                 }
             }
 
@@ -350,7 +407,7 @@ export default function LeafletMap() {
         }, 30000);
 
         return () => clearInterval(interval);
-    }, [isConnected, timestamps, productTimestamps, selectedProduct]);
+    }, [isConnected, timestamps, productTimestamps, activeLayers]);
 
     // Debounce/Listen to slide change
     useEffect(() => {
@@ -382,11 +439,23 @@ export default function LeafletMap() {
              try {
                  const prods = await ewmrsRef.current.getAvailableProducts();
                  setProducts(prods);
-                 if (prods.length > 0) {
-                      const initial = prods.includes('CompRefQC') ? 'CompRefQC' : prods[0];
-                      setSelectedProduct(initial);
-                      const prodTs = await ewmrsRef.current.getProductTimestamps(initial);
-                      setProductTimestamps(prodTs.sort());
+                 
+                 // Initialize activeLayers
+                 // Default to Reflectivity (CompRefQC) visible if available
+                 const initialLayers: Record<string, LayerState> = {};
+                 prods.forEach(p => {
+                     initialLayers[p] = { 
+                         visible: p === 'CompRefQC' || p === prods[0], 
+                         opacity: 0.6 
+                     };
+                 });
+                 setActiveLayers(initialLayers);
+
+                 // Fetch timestamps for the initial visible one
+                 const initialProd = prods.includes('CompRefQC') ? 'CompRefQC' : prods[0];
+                 if (initialProd) {
+                     const prodTs = await ewmrsRef.current.getProductTimestamps(initialProd);
+                     setProductTimestamps(prev => ({ ...prev, [initialProd]: prodTs.sort() }));
                  }
              } catch (e) {
                  console.warn("EWMRS connection failed", e);
@@ -404,18 +473,23 @@ export default function LeafletMap() {
         }
     };
     
-    // Changing product
+    // Watch for newly visible layers and fetch their timestamps if missing
     useEffect(() => {
-        const updateProdTs = async () => {
-            if (ewmrsRef.current && selectedProduct) {
-                 try {
-                     const prodTs = await ewmrsRef.current.getProductTimestamps(selectedProduct);
-                     setProductTimestamps(prodTs.sort());
-                 } catch (e) { console.warn("Failed fetch prod ts"); }
-            }
+        const fetchMissingTs = async () => {
+             if (!ewmrsRef.current) return;
+             
+             const visibleProds = Object.keys(activeLayers).filter(k => activeLayers[k].visible);
+             for (const prod of visibleProds) {
+                 if (!productTimestamps[prod]) {
+                      try {
+                          const prodTs = await ewmrsRef.current.getProductTimestamps(prod);
+                          setProductTimestamps(prev => ({ ...prev, [prod]: prodTs.sort() }));
+                      } catch (e) { console.warn("Failed fetch prod ts for", prod); }
+                 }
+             }
         };
-        updateProdTs();
-    }, [selectedProduct]);
+        fetchMissingTs();
+    }, [activeLayers]);
     
     // Playback Logic
     useEffect(() => {
@@ -434,7 +508,27 @@ export default function LeafletMap() {
         return () => clearInterval(interval);
     }, [isPlaying, timestamps.length, isConnected]);
 
-    // Current Time Labels
+    // Handlers for MapSettingsPanel
+    const toggleLayer = (product: string) => {
+        setActiveLayers(prev => ({
+            ...prev,
+            [product]: {
+                ...prev[product],
+                visible: !prev[product].visible
+            }
+        }));
+    };
+
+    const changeOpacity = (product: string, opacity: number) => {
+        setActiveLayers(prev => ({
+            ...prev,
+            [product]: {
+                ...prev[product],
+                opacity
+            }
+        }));
+    };
+
     const currentTs = timestamps[currentIndex] || '';
     const { date, time } = formatTimeLabel(currentTs);
 
@@ -477,42 +571,87 @@ export default function LeafletMap() {
                          </div>
                          
                          {/* Rail Content */}
-                         <div className="flex-1 flex flex-col items-center py-4">
-                            {/* Placeholder for future settings icons */}
+                         <div className="flex-1 flex flex-col items-center py-4 gap-4">
+                            <button 
+                                onClick={() => setActivePanel(activePanel === 'map' ? null : 'map')}
+                                className={`p-3 rounded-xl transition-all ${activePanel === 'map' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-blue-400 hover:bg-gray-800'}`} 
+                                title="Map Settings"
+                            >
+                                <MapIcon size={22} />
+                            </button>
+                            <button 
+                                onClick={() => setActivePanel(activePanel === 'connection' ? null : 'connection')}
+                                className={`p-3 rounded-xl transition-all ${activePanel === 'connection' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-blue-400 hover:bg-gray-800'}`} 
+                                title="Connection Settings"
+                            >
+                                <Wifi size={22} />
+                            </button>
+                            <button 
+                                onClick={() => setActivePanel(activePanel === 'list' ? null : 'list')}
+                                className={`p-3 rounded-xl transition-all ${activePanel === 'list' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-blue-400 hover:bg-gray-800'}`} 
+                                title="Cell List"
+                            >
+                                <List size={22} />
+                            </button>
+                            
+                            <div className="flex-1" />
+                            
+                            <button 
+                                onClick={() => setActivePanel(activePanel === 'settings' ? null : 'settings')}
+                                className={`p-3 rounded-xl transition-all ${activePanel === 'settings' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-blue-400 hover:bg-gray-800'}`} 
+                                title="Settings"
+                            >
+                                <Settings size={22} />
+                            </button>
                          </div>
                      </div>
 
-                     {/* Sidebar Content */}
+                     {/* Sidebar Content Area */}
                      <div className="w-80 flex-shrink-0 flex flex-col border-r border-gray-700 bg-gray-800 overflow-y-auto">
-                          {/* Title Container - Aligned Height with Logo Container */}
-                          <div className="flex-shrink-0 h-14 flex items-center px-6 border-b border-gray-700">
-                               <h1 className="text-xl font-bold text-blue-400">EdgeWARN</h1>
-                          </div>
+                          
+                          {/* 1. MAP SETTINGS PANEL */}
+                          {activePanel === 'map' && (
+                              <MapSettingsPanel 
+                                  products={products}
+                                  activeLayers={activeLayers}
+                                  onLayerToggle={toggleLayer}
+                                  onOpacityChange={changeOpacity}
+                              />
+                          )}
 
-                          <div className="p-4">
-                               <div className="space-y-3">
-                                    {!isConnected ? (
-                                        <div className="text-gray-500 text-sm italic text-center py-4 border border-gray-700/50 rounded bg-gray-800/50">
-                                            Waiting for connection...
-                                        </div>
-                                    ) : (
-                                        <>
-                                            <div className="text-sm text-green-400 mb-2">Connected</div>
-                                            <select value={selectedProduct || ''} onChange={e => setSelectedProduct(e.target.value)}
-                                                className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm mb-2">
-                                                {products.map(p => <option key={p} value={p}>{p}</option>)}
-                                            </select>
+                          {/* 2. CONNECTION PANEL */}
+                          {(activePanel === 'connection') && (
+                              <ConnectionSettingsPanel 
+                                  currentApiUrl={apiUrl}
+                                  currentEwmrsUrl={ewmrsUrl}
+                                  isConnected={isConnected}
+                                  onConnect={handleConnect}
+                                  loading={loading}
+                                  error={error}
+                              />
+                          )}
+                          
+                          {/* 3. LIST / SETTINGS Placeholder */}
+                          {(activePanel === 'list' || activePanel === 'settings') && (
+                              <div className="p-4 text-gray-400 italic text-center text-sm">
+                                  Not implemented yet
+                              </div>
+                          )}
 
-                                            <div className="space-y-2">
-                                                <label className="flex items-center text-xs text-gray-400 cursor-pointer">
-                                                    <input type="checkbox" checked={showRadar} onChange={e => setShowRadar(e.target.checked)} className="mr-2"/>
-                                                    Show Radar Layer
-                                                </label>
-                                            </div>
-                                        </>
-                                    )}
+                          {/* Default/Empty State if nothing selected? Or maybe 'connection' should be default?
+                              If activePanel is null, sidebar is empty?
+                              Let's leave it empty if null for cleaner look, or maybe show Logo?
+                              Actually, let's make 'connection' or 'map' default? 
+                              User said "appears when you click it". So default is likely closed/empty?
+                              But we have a fixed width sidebar space. If it's empty it looks weird.
+                              Let's show "Select a tool from the rail" message if null.
+                           */}
+                           {activePanel === null && (
+                               <div className="flex flex-col items-center justify-center h-full text-gray-500 text-sm italic p-6 text-center">
+                                   <div className="text-gray-600 mb-2">EdgeWARN</div>
+                                   Select a tool from the left rail
                                </div>
-                          </div>
+                           )}
                      </div>
                  </div>
 
