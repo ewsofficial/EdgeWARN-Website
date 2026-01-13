@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { EdgeWARNAPI } from '@/utils/edgewarn-api';
 import { Map as MapIcon, Wifi, List, Settings } from 'lucide-react';
 import { EWMRSAPI } from '@/utils/ewmrs-api';
+import { Cell } from '@/types';
 import SlidebarControl from '../UI/SlidebarControl';
 import { MapToolbar } from '../UI/MapToolbar';
 import { DistanceTool } from '../UI/DistanceTool';
@@ -52,7 +53,7 @@ export default function LeafletMap() {
     const [products, setProducts] = useState<string[]>([]);
     const [activeLayers, setActiveLayers] = useState<Record<string, LayerState>>({});
     const [productTimestamps, setProductTimestamps] = useState<Record<string, string[]>>({}); // Cache timestamps per product
-    const [currentCells, setCurrentCells] = useState<any[]>([]);
+    const [currentCells, setCurrentCells] = useState<Cell[]>([]);
 
     const [activePanel, setActivePanel] = useState<'map' | 'connection' | 'list' | 'settings' | null>(null);
 
@@ -151,7 +152,7 @@ export default function LeafletMap() {
         };
     };
 
-    const findClosestTimestamp = (targetTs: string, candidates: string[]) => {
+    const findClosestTimestamp = useCallback((targetTs: string, candidates: string[]) => {
         if (!candidates || candidates.length === 0) return null;
         
         const targetDate = parseTimestamp(targetTs);
@@ -176,7 +177,7 @@ export default function LeafletMap() {
         // 10 minutes tolerance
         if (minDiff > 600000) return null;
         return closest;
-    };
+    }, []);
 
     // Load Data Logic
     const loadData = useCallback(async (index: number) => {
@@ -199,13 +200,13 @@ export default function LeafletMap() {
              const data = await apiRef.current.downloadStormcellList(ts);
              const layerGroup = L.featureGroup();
              
-             let features: any[] = [];
-             if (data.content && data.content.features) features = data.content.features;
-             else if (data.features) features = data.features;
+             let features: Cell[] = [];
+             if ('content' in data && data.content && data.content.features) features = data.content.features;
+             else if ('features' in data && data.features) features = data.features;
              else if (Array.isArray(data)) features = data;
 
              // Only include cells that have valid geometry (bbox) to match what is drawn on map
-             const visibleFeatures = features.filter((cell: any) => 
+             const visibleFeatures = features.filter((cell: Cell) =>
                 cell.bbox && Array.isArray(cell.bbox) && cell.bbox.length > 0
              );
              setCurrentCells(visibleFeatures);
@@ -217,11 +218,11 @@ export default function LeafletMap() {
                 fillOpacity: 0.3
             };
 
-            features.forEach((cell: any) => {
+            features.forEach((cell: Cell) => {
                  if (cell.bbox && Array.isArray(cell.bbox) && cell.bbox.length > 0) {
                       const coords: L.LatLngExpression[] = cell.bbox.map((p: number[]) => {
-                           let val1 = p[0];
-                           let val2 = p[1];
+                           const val1 = p[0];
+                           const val2 = p[1];
                            let lat, lon;
                            if (Math.abs(val1) > 90) {
                                 lon = val1; lat = val2;
@@ -235,10 +236,13 @@ export default function LeafletMap() {
                       const polygon = L.polygon(coords, polyStyle);
                        
                        // Helper to get modules from either root or properties
-                       const modules = cell.modules || cell.properties?.modules;
+                       // Use bracket notation for Record types or explicit cast if needed.
+                       // Since properties is Record<string, unknown>, we cast appropriately or use bracket notation.
+                       const modules = cell.modules || (cell.properties?.['modules'] as Record<string, unknown> | undefined);
                        
                        // Debugging StormCast Data
-                       if (modules && (modules["StormCast"] || modules["stormcast"])) {
+                       // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                       if (modules && ((modules as any)["StormCast"] || (modules as any)["stormcast"])) {
                             // console.log(`Cell ${cell.id} has StormCast module`, modules["StormCast"] || modules["stormcast"]);
                        }
 
@@ -250,8 +254,10 @@ export default function LeafletMap() {
 
                             // Render StormCast Forecast Cones
                             if (modules) {
-                                const stormCastData = modules["StormCast"] || modules["stormcast"];
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                const stormCastData = ((modules as any)["StormCast"] || (modules as any)["stormcast"]) as any;
                                 if (stormCastData && stormCastData.forecast_cones && Array.isArray(stormCastData.forecast_cones)) {
+                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                     stormCastData.forecast_cones.forEach((cone: any) => {
                                         // Check if valid
                                         const validCenter = cone.center && Array.isArray(cone.center) && cone.center.length === 2;
@@ -259,7 +265,8 @@ export default function LeafletMap() {
                                         
                                         if (validCenter && validRadius) {
                                             // Normalize longitude if needed (0-360 -> -180-180)
-                                            let [cLat, cLon] = cone.center;
+                                            const cLat = cone.center[0];
+                                            let cLon = cone.center[1];
                                             if (cLon > 180) cLon -= 360;
                                             
                                             const circle = L.circle([cLat, cLon], {
@@ -284,9 +291,9 @@ export default function LeafletMap() {
             layerGroup.addTo(map);
             currentLayerRef.current = layerGroup;
 
-        } catch (err: any) {
+        } catch (err) {
              console.warn(`Error loading cell data for ${ts}:`, err);
-             if (err.message?.includes('404')) {
+             if ((err as Error).message?.includes('404')) {
                  setError(`Data not available for ${ts}`);
              }
         }
@@ -300,7 +307,9 @@ export default function LeafletMap() {
         // Cleanup: Remove layers that are no longer needed
         for (const [prod, overlay] of mapOverlays.entries()) {
             if (!neededProducts.includes(prod)) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 if ((overlay as any)._blobUrl) {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     URL.revokeObjectURL((overlay as any)._blobUrl);
                 }
                 map.removeLayer(overlay);
@@ -340,6 +349,7 @@ export default function LeafletMap() {
                          if (mapOverlays.has(prod)) {
                              const old = mapOverlays.get(prod)!;
                              map.removeLayer(old); 
+                             // eslint-disable-next-line @typescript-eslint/no-explicit-any
                              if ((old as any)._blobUrl) URL.revokeObjectURL((old as any)._blobUrl);
                          }
 
@@ -347,6 +357,7 @@ export default function LeafletMap() {
                          const overlay = L.imageOverlay(objectUrl, bounds, { opacity }).addTo(map);
                          overlay.bringToBack();
                          mapOverlays.set(prod, overlay);
+                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
                          (overlay as any)._blobUrl = objectUrl;
 
                          if (crisp) {
@@ -381,7 +392,7 @@ export default function LeafletMap() {
         
         setLoading(false);
 
-    }, [timestamps, activeLayers, productTimestamps, crisp, showContour]); // Update deps
+    }, [timestamps, activeLayers, productTimestamps, crisp, showContour, findClosestTimestamp]); // Update deps
 
     // Auto-refresh logic (every 30 seconds)
     useEffect(() => {
@@ -533,8 +544,8 @@ export default function LeafletMap() {
                  setCurrentIndex(ts.length - 1); // Start at latest
              }
 
-        } catch (err: any) {
-             setError(err.message);
+        } catch (err) {
+             setError((err as Error).message);
         } finally {
              setLoading(false);
         }
@@ -551,12 +562,12 @@ export default function LeafletMap() {
                       try {
                           const prodTs = await ewmrsRef.current.getProductTimestamps(prod);
                           setProductTimestamps(prev => ({ ...prev, [prod]: prodTs.sort() }));
-                      } catch (e) { console.warn("Failed fetch prod ts for", prod); }
+                      } catch { console.warn("Failed fetch prod ts for", prod); }
                  }
              }
         };
         fetchMissingTs();
-    }, [activeLayers]);
+    }, [activeLayers, productTimestamps]);
     
     // Playback Logic
     useEffect(() => {
@@ -596,7 +607,7 @@ export default function LeafletMap() {
         }));
     };
 
-    const handleCellClick = (cell: any) => {
+    const handleCellClick = (cell: Cell) => {
         if (!mapInstanceRef.current || !cell.bbox) return;
 
         // Convert bbox to latlng compatible bounds
@@ -606,8 +617,8 @@ export default function LeafletMap() {
         
         try {
             const coords: L.LatLngExpression[] = cell.bbox.map((p: number[]) => {
-                let val1 = p[0];
-                let val2 = p[1];
+                const val1 = p[0];
+                const val2 = p[1];
                 let lat, lon;
                 if (Math.abs(val1) > 90) {
                      lon = val1; lat = val2;
@@ -638,6 +649,7 @@ export default function LeafletMap() {
         <div className="flex bg-gray-900 text-gray-100 h-screen font-sans overflow-hidden">
              {/* Connection Modal - must be at root level */}
              <ConnectionModal
+                 key={`modal-${apiUrl}-${ewmrsUrl}`}
                  isOpen={!isConnected}
                  loading={loading}
                  error={error}
@@ -722,6 +734,7 @@ export default function LeafletMap() {
                           {/* 2. CONNECTION PANEL */}
                           {(activePanel === 'connection') && (
                               <ConnectionSettingsPanel 
+                                  key={`panel-${apiUrl}-${ewmrsUrl}`}
                                   currentApiUrl={apiUrl}
                                   currentEwmrsUrl={ewmrsUrl}
                                   isConnected={isConnected}

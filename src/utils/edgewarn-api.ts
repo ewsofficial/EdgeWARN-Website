@@ -3,6 +3,8 @@
  * Provides methods to interact with the EdgeWARN Features API
  */
 
+import { Cell, StormCellList } from '@/types';
+
 export class EdgeWARNAPI {
     private baseUrl: string;
 
@@ -60,7 +62,7 @@ export class EdgeWARNAPI {
      * @param timestamp - Timestamp in YYYYMMDD-HHMMSS format
      * @returns Stormcell list JSON data
      */
-    async downloadStormcellList(timestamp: string): Promise<any> {
+    async downloadStormcellList(timestamp: string): Promise<StormCellList | Cell[]> {
         // Validation: Expects YYYYMMDD-HHMMSS format
         // Basic regex to prevent injection and ensure format
         if (!/^\d{8}-\d{6}$/.test(timestamp)) {
@@ -89,7 +91,7 @@ export class EdgeWARNAPI {
      * @param cellId - Cell ID as a positive integer
      * @returns Array of historical cell states
      */
-    async downloadCellHistory(cellId: number): Promise<any[]> {
+    async downloadCellHistory(cellId: number): Promise<Cell[]> {
         if (!Number.isInteger(cellId) || cellId <= 0) {
             throw new Error(`Invalid cell ID: ${cellId}. Expected a positive integer.`);
         }
@@ -110,7 +112,7 @@ export class EdgeWARNAPI {
      * Check server health
      * @returns Health status object
      */
-    async checkHealth(): Promise<any> {
+    async checkHealth(): Promise<Record<string, unknown>> {
         const response = await fetch(`${this.baseUrl}/health`, {
             headers: { 'Accept': 'application/json' },
             cache: 'no-store'
@@ -127,7 +129,7 @@ export class EdgeWARNAPI {
      * Get API information
      * @returns API endpoint information
      */
-    async getAPIInfo(): Promise<any> {
+    async getAPIInfo(): Promise<Record<string, unknown>> {
         const response = await fetch(`${this.baseUrl}/features/`, {
             headers: { 'Accept': 'application/json' },
             cache: 'no-store'

@@ -11,7 +11,7 @@ interface DistanceToolProps {
 
 export function DistanceTool({ map }: DistanceToolProps) {
     const [active, setActive] = useState(false);
-    const [totalDistance, setTotalDistance] = useState<number>(0);
+    // const [totalDistance, setTotalDistance] = useState<number>(0); // Unused
     const pointsRef = useRef<L.LatLng[]>([]);
     const polylineRef = useRef<L.Polyline | null>(null);
     const markersRef = useRef<L.CircleMarker[]>([]);
@@ -27,7 +27,7 @@ export function DistanceTool({ map }: DistanceToolProps) {
         labelsRef.current.forEach(l => map?.removeLayer(l));
         labelsRef.current = [];
         pointsRef.current = [];
-        setTotalDistance(0);
+        // setTotalDistance(0);
     }, [map]);
 
     const handleClick = useCallback((e: L.LeafletMouseEvent) => {
@@ -76,11 +76,11 @@ export function DistanceTool({ map }: DistanceToolProps) {
         }
 
         // Calculate total distance
-        let total = 0;
-        for (let i = 1; i < pointsRef.current.length; i++) {
-            total += pointsRef.current[i - 1].distanceTo(pointsRef.current[i]);
-        }
-        setTotalDistance(total / 1000); // Convert to km
+        // let total = 0;
+        // for (let i = 1; i < pointsRef.current.length; i++) {
+        //     total += pointsRef.current[i - 1].distanceTo(pointsRef.current[i]);
+        // }
+        // setTotalDistance(total / 1000); // Convert to km
     }, [map]);
 
     useEffect(() => {

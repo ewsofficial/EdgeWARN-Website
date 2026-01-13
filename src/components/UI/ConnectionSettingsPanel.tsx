@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Wifi, Server, RefreshCw, CheckCircle, XCircle } from 'lucide-react';
 
 interface ConnectionSettingsPanelProps {
@@ -20,12 +20,6 @@ export default function ConnectionSettingsPanel({
 }: ConnectionSettingsPanelProps) {
     const [apiUrl, setApiUrl] = useState(currentApiUrl);
     const [ewmrsUrl, setEwmrsUrl] = useState(currentEwmrsUrl);
-
-    // Sync local state if props change (e.g. initial load)
-    useEffect(() => {
-        setApiUrl(currentApiUrl);
-        setEwmrsUrl(currentEwmrsUrl);
-    }, [currentApiUrl, currentEwmrsUrl]);
 
     const handleConnectClick = () => {
         onConnect(apiUrl, ewmrsUrl);
