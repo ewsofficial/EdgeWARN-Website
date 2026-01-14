@@ -836,15 +836,13 @@ export default function LeafletMap() {
                  {/* Playback Control Footer - Spans Full Width (Rail + Sidebar) */}
                  {isConnected && (
                       <div className="flex-shrink-0 bg-gray-900 border-t border-gray-700 border-r p-4 z-40">
-                           <div className="bg-gray-900/40 border border-gray-700/30 rounded-2xl p-3 shadow-inner backdrop-blur-sm">
-                               <SlidebarControl 
-                                   currentIndex={currentIndex}
-                                   totalFrames={timestamps.length}
-                                   onIndexChange={setCurrentIndex}
-                                   isPlaying={isPlaying}
-                                   onTogglePlay={() => setIsPlaying(!isPlaying)}
-                               />
-                           </div>
+                           <SlidebarControl 
+                               currentIndex={currentIndex}
+                               totalFrames={timestamps.length}
+                               onIndexChange={setCurrentIndex}
+                               isPlaying={isPlaying}
+                               onTogglePlay={() => setIsPlaying(!isPlaying)}
+                           />
                            
                            {error && <div className="text-xs text-red-500 italic text-center mt-2">{error}</div>}
                       </div>
