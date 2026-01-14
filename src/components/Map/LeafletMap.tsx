@@ -1,13 +1,12 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import L from 'leaflet';
-import 'leaflet/dist/leaflet.css'; // Ensure CSS is imported
+import 'leaflet/dist/leaflet.css';
 import Link from 'next/link';
-import { EdgeWARNAPI } from '@/utils/edgewarn-api';
 import { Map as MapIcon, Wifi, List, Settings } from 'lucide-react';
-import { EWMRSAPI } from '@/utils/ewmrs-api';
-import { Cell, Colormap } from '@/types';
+import { Cell } from '@/types';
+import { formatTimeLabel, findClosestTimestamp } from '@/utils/timestamp';
 import SlidebarControl from '../UI/SlidebarControl';
 import { MapToolbar } from '../UI/MapToolbar';
 import { DistanceTool } from '../UI/DistanceTool';
@@ -17,61 +16,57 @@ import MapSettingsPanel from '../UI/MapSettingsPanel';
 import ConnectionSettingsPanel from '../UI/ConnectionSettingsPanel';
 import CellListPanel from '../UI/CellListPanel';
 import ColormapLegend from '../UI/ColormapLegend';
-
-interface LayerState {
-    visible: boolean;
-    opacity: number;
-}
-
-interface TimestampStr {
-    date: string;
-    time: string;
-}
+import { useMapConnection } from './hooks';
+import { 
+    DEFAULT_BOUNDS, 
+    DEFAULT_MAP_CONFIG, 
+    PRODUCT_TO_COLORMAP_TYPE,
+    CELL_POLYGON_STYLE,
+    FORECAST_CONE_STYLE,
+} from './constants';
 
 export default function LeafletMap() {
+    // Use custom hook for connection state and handlers
+    const {
+        apiUrl,
+        ewmrsUrl,
+        isConnected,
+        loading,
+        error,
+        apiRef,
+        ewmrsRef,
+        timestamps,
+        products,
+        activeLayers,
+        setActiveLayers,
+        productTimestamps,
+        setProductTimestamps,
+        colormaps,
+        currentIndex,
+        setCurrentIndex,
+        isFlashing,
+        setIsFlashing,
+        handleConnect,
+    } = useMapConnection();
+
+    // Map refs
     const mapContainerRef = useRef<HTMLDivElement>(null);
     const mapInstanceRef = useRef<L.Map | null>(null);
-    const apiRef = useRef<EdgeWARNAPI | null>(null);
-    const ewmrsRef = useRef<EWMRSAPI | null>(null);
     const currentLayerRef = useRef<L.FeatureGroup | null>(null);
-    // Changed to Map for multiple overlays
     const overlayLayersRef = useRef<Map<string, L.ImageOverlay>>(new Map()); 
     const contourLayerRef = useRef<L.Rectangle | null>(null);
     const boundsLayerRef = useRef<L.Rectangle | null>(null);
 
-    // State
-    const [apiUrl, setApiUrl] = useState('http://localhost:5000');
-    const [ewmrsUrl, setEwmrsUrl] = useState('http://localhost:3003');
-    const [isConnected, setIsConnected] = useState(false);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-
-    const [timestamps, setTimestamps] = useState<string[]>([]);
-    const [currentIndex, setCurrentIndex] = useState(0);
+    // Local UI state
     const [isPlaying, setIsPlaying] = useState(false);
-    
-    // EWMRS State
-    const [products, setProducts] = useState<string[]>([]);
-    const [activeLayers, setActiveLayers] = useState<Record<string, LayerState>>({});
-    const [productTimestamps, setProductTimestamps] = useState<Record<string, string[]>>({}); // Cache timestamps per product
     const [currentCells, setCurrentCells] = useState<Cell[]>([]);
-    const [colormaps, setColormaps] = useState<Colormap[]>([]);
-
     const [activePanel, setActivePanel] = useState<'map' | 'connection' | 'list' | 'settings' | null>(null);
+    const [selectedCellInfo, setSelectedCellInfo] = useState<string | null>(null);
 
-    
-    // Toggles
-    // const [showRadar, setShowRadar] = useState(true); // Removed in favor of activeLayers
-    // Hardcoded defaults per request: Bounds=Off, Contour=Off, Crisp=On
-    // Hardcoded defaults per request: Bounds=Off, Contour=Off, Crisp=On
+    // Toggles (hardcoded)
     const showBounds = false;
     const showContour = false;
     const crisp = true;
-
-    // Flashing state for new data
-    const [isFlashing, setIsFlashing] = useState(false);
-
-    const [selectedCellInfo, setSelectedCellInfo] = useState<string | null>(null);
 
     // Initialization
     useEffect(() => {
@@ -135,52 +130,6 @@ export default function LeafletMap() {
         }
     }, [showBounds]);
 
-    // Helper functions
-    const parseTimestamp = (ts: string): Date | null => {
-         const match = ts.match(/(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})/);
-         if (!match) return null;
-         return new Date(
-             parseInt(match[1]), parseInt(match[2]) - 1, parseInt(match[3]),
-             parseInt(match[4]), parseInt(match[5]), parseInt(match[6])
-         );
-    };
-
-    const formatTimeLabel = (ts: string): TimestampStr => {
-        const match = ts.match(/(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})/);
-        if (!match) return { date: ts, time: '' };
-        return {
-            date: `${match[1]}-${match[2]}-${match[3]}`,
-            time: `${match[4]}:${match[5]}`
-        };
-    };
-
-    const findClosestTimestamp = useCallback((targetTs: string, candidates: string[]) => {
-        if (!candidates || candidates.length === 0) return null;
-        
-        const targetDate = parseTimestamp(targetTs);
-        if (!targetDate) return null;
-        targetDate.setSeconds(0, 0);
-
-        let closest = null;
-        let minDiff = Infinity;
-        
-        for (const cand of candidates) {
-            const candDate = parseTimestamp(cand);
-            if (!candDate) continue;
-            candDate.setSeconds(0, 0);
-
-            const diff = Math.abs(candDate.getTime() - targetDate.getTime());
-            if (diff < minDiff) {
-                minDiff = diff;
-                closest = cand;
-            }
-        }
-        
-        // 10 minutes tolerance
-        if (minDiff > 600000) return null;
-        return closest;
-    }, []);
-
     // Load Data Logic
     const loadData = useCallback(async (index: number) => {
         if (!timestamps[index] || !apiRef.current) return;
@@ -188,8 +137,6 @@ export default function LeafletMap() {
         const map = mapInstanceRef.current;
         if (!map) return;
 
-        setLoading(true);
-        setError(null);
 
         // 1. Load Storm Cells (same as before)
         try {
@@ -295,9 +242,6 @@ export default function LeafletMap() {
 
         } catch (err) {
              console.warn(`Error loading cell data for ${ts}:`, err);
-             if ((err as Error).message?.includes('404')) {
-                 setError(`Data not available for ${ts}`);
-             }
         }
 
         // 2. Render Overlays (Multiple)
@@ -391,10 +335,8 @@ export default function LeafletMap() {
                  fill: false
              }).addTo(map);
         }
-        
-        setLoading(false);
 
-    }, [timestamps, activeLayers, productTimestamps, crisp, showContour, findClosestTimestamp]); // Update deps
+    }, [timestamps, activeLayers, productTimestamps, crisp, showContour]); // Update deps
 
     // Auto-refresh logic (every 30 seconds)
     useEffect(() => {
@@ -415,7 +357,8 @@ export default function LeafletMap() {
                                   sortedLatest[sortedLatest.length - 1] !== sortedPrev[sortedPrev.length - 1];
                     
                     if (isNew) {
-                        setTimestamps(sortedLatest);
+                        // Note: timestamps refresh is handled by the hook
+                        // We just trigger a re-render by updating currentIndex
                         currentMainTimestamps = sortedLatest;
                         hasGlobalUpdate = true;
                     }
@@ -478,93 +421,8 @@ export default function LeafletMap() {
          }, 200);
          return () => clearTimeout(timer);
     }, [currentIndex, isConnected, loadData, timestamps.length]); 
-
-    // Connect Handler
-    const handleConnect = async (overrideApiUrl?: string, overrideEwmrsUrl?: string) => {
-        const finalApiUrl = overrideApiUrl || apiUrl;
-        const finalEwmrsUrl = overrideEwmrsUrl || ewmrsUrl;
-        
-        if (overrideApiUrl) setApiUrl(overrideApiUrl);
-        if (overrideEwmrsUrl) setEwmrsUrl(overrideEwmrsUrl);
-
-        setLoading(true);
-        setError(null);
-        try {
-            apiRef.current = new EdgeWARNAPI(finalApiUrl);
-            ewmrsRef.current = new EWMRSAPI(finalEwmrsUrl);
-
-            const ts = await apiRef.current.fetchTimestamps();
-            setTimestamps(ts.sort());
-
-            try {
-                const prods = await ewmrsRef.current.getAvailableProducts();
-                setProducts(prods);
-                
-                // Initialize activeLayers
-                // Default to Reflectivity (CompRefQC) visible if available, or preserve existing settings
-                const initialLayers: Record<string, LayerState> = {};
-                prods.forEach(p => {
-                    if (activeLayers[p]) {
-                        initialLayers[p] = activeLayers[p];
-                    } else {
-                        initialLayers[p] = {
-                            visible: p === 'CompRefQC' || p === prods[0],
-                            opacity: 0.6
-                        };
-                    }
-                });
-                setActiveLayers(initialLayers);
-
-                // Fetch timestamps for all visible products
-                const visibleProds = Object.keys(initialLayers).filter(k => initialLayers[k].visible);
-
-                const tsPromises = visibleProds.map(async p => {
-                    try {
-                        const productTs = await ewmrsRef.current!.getProductTimestamps(p);
-                        return { p, ts: productTs };
-                    } catch (e) {
-                        console.warn(`Failed to update timestamps for ${p}`, e);
-                        return null;
-                    }
-                });
-
-                const results = await Promise.all(tsPromises);
-
-                setProductTimestamps(prev => {
-                    const next = { ...prev };
-                    results.forEach(r => {
-                        if (r) next[r.p] = r.ts.sort();
-                    });
-                    return next;
-                });
-
-                // Fetch colormaps
-                try {
-                    const cmapResponse = await ewmrsRef.current.fetchColormaps();
-                    if (cmapResponse && cmapResponse.length > 0) {
-                        // Flatten all colormaps from all responses
-                        const allColormaps = cmapResponse.flatMap(r => r.colormaps);
-                        setColormaps(allColormaps);
-                    }
-                } catch (cmapErr) {
-                    console.warn("Failed to fetch colormaps", cmapErr);
-                }
-            } catch (e) {
-                console.warn("EWMRS connection failed", e);
-            }
-            
-            setIsConnected(true);
-            if (ts.length > 0) {
-                setCurrentIndex(ts.length - 1); // Start at latest
-            }
-
-        } catch (err) {
-            setError((err as Error).message);
-        } finally {
-            setLoading(false);
-        }
-    };
     
+
     // Watch for newly visible layers and fetch their timestamps if missing
     useEffect(() => {
         const fetchMissingTs = async () => {

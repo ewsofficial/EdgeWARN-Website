@@ -33,3 +33,10 @@ export interface ColormapResponse {
     version: string;
     colormaps: Colormap[];
 }
+
+// Map layer state
+export interface LayerState {
+    visible: boolean;
+    opacity: number;
+}
+
