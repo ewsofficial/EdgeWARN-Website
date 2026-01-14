@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css'; // Ensure CSS is imported
 import Link from 'next/link';
 import { EdgeWARNAPI } from '@/utils/edgewarn-api';
 import { Map as MapIcon, Wifi, List, Settings } from 'lucide-react';
 import { EWMRSAPI } from '@/utils/ewmrs-api';
-import { Cell } from '@/types';
+import { Cell, Colormap } from '@/types';
 import SlidebarControl from '../UI/SlidebarControl';
 import { MapToolbar } from '../UI/MapToolbar';
 import { DistanceTool } from '../UI/DistanceTool';
@@ -16,6 +16,7 @@ import ConnectionModal from '../UI/ConnectionModal';
 import MapSettingsPanel from '../UI/MapSettingsPanel';
 import ConnectionSettingsPanel from '../UI/ConnectionSettingsPanel';
 import CellListPanel from '../UI/CellListPanel';
+import ColormapLegend from '../UI/ColormapLegend';
 
 interface LayerState {
     visible: boolean;
@@ -54,6 +55,7 @@ export default function LeafletMap() {
     const [activeLayers, setActiveLayers] = useState<Record<string, LayerState>>({});
     const [productTimestamps, setProductTimestamps] = useState<Record<string, string[]>>({}); // Cache timestamps per product
     const [currentCells, setCurrentCells] = useState<Cell[]>([]);
+    const [colormaps, setColormaps] = useState<Colormap[]>([]);
 
     const [activePanel, setActivePanel] = useState<'map' | 'connection' | 'list' | 'settings' | null>(null);
 
@@ -488,66 +490,78 @@ export default function LeafletMap() {
         setLoading(true);
         setError(null);
         try {
-             apiRef.current = new EdgeWARNAPI(finalApiUrl);
-             ewmrsRef.current = new EWMRSAPI(finalEwmrsUrl);
+            apiRef.current = new EdgeWARNAPI(finalApiUrl);
+            ewmrsRef.current = new EWMRSAPI(finalEwmrsUrl);
 
-             const ts = await apiRef.current.fetchTimestamps();
-             setTimestamps(ts.sort());
+            const ts = await apiRef.current.fetchTimestamps();
+            setTimestamps(ts.sort());
 
-             try {
-                 const prods = await ewmrsRef.current.getAvailableProducts();
-                 setProducts(prods);
-                 
-                 // Initialize activeLayers
-                 // Default to Reflectivity (CompRefQC) visible if available, or preserve existing settings
-                 const initialLayers: Record<string, LayerState> = {};
-                 prods.forEach(p => {
-                     if (activeLayers[p]) {
-                         initialLayers[p] = activeLayers[p];
-                     } else {
-                         initialLayers[p] = {
-                             visible: p === 'CompRefQC' || p === prods[0],
-                             opacity: 0.6
-                         };
-                     }
-                 });
-                 setActiveLayers(initialLayers);
+            try {
+                const prods = await ewmrsRef.current.getAvailableProducts();
+                setProducts(prods);
+                
+                // Initialize activeLayers
+                // Default to Reflectivity (CompRefQC) visible if available, or preserve existing settings
+                const initialLayers: Record<string, LayerState> = {};
+                prods.forEach(p => {
+                    if (activeLayers[p]) {
+                        initialLayers[p] = activeLayers[p];
+                    } else {
+                        initialLayers[p] = {
+                            visible: p === 'CompRefQC' || p === prods[0],
+                            opacity: 0.6
+                        };
+                    }
+                });
+                setActiveLayers(initialLayers);
 
-                 // Fetch timestamps for all visible products
-                 const visibleProds = Object.keys(initialLayers).filter(k => initialLayers[k].visible);
+                // Fetch timestamps for all visible products
+                const visibleProds = Object.keys(initialLayers).filter(k => initialLayers[k].visible);
 
-                 const tsPromises = visibleProds.map(async p => {
-                     try {
-                         const ts = await ewmrsRef.current!.getProductTimestamps(p);
-                         return { p, ts };
-                     } catch (e) {
-                         console.warn(`Failed to update timestamps for ${p}`, e);
-                         return null;
-                     }
-                 });
+                const tsPromises = visibleProds.map(async p => {
+                    try {
+                        const productTs = await ewmrsRef.current!.getProductTimestamps(p);
+                        return { p, ts: productTs };
+                    } catch (e) {
+                        console.warn(`Failed to update timestamps for ${p}`, e);
+                        return null;
+                    }
+                });
 
-                 const results = await Promise.all(tsPromises);
+                const results = await Promise.all(tsPromises);
 
-                 setProductTimestamps(prev => {
-                     const next = { ...prev };
-                     results.forEach(r => {
-                         if (r) next[r.p] = r.ts.sort();
-                     });
-                     return next;
-                 });
-             } catch (e) {
-                 console.warn("EWMRS connection failed", e);
-             }
-             
-             setIsConnected(true);
-             if (ts.length > 0) {
-                 setCurrentIndex(ts.length - 1); // Start at latest
-             }
+                setProductTimestamps(prev => {
+                    const next = { ...prev };
+                    results.forEach(r => {
+                        if (r) next[r.p] = r.ts.sort();
+                    });
+                    return next;
+                });
+
+                // Fetch colormaps
+                try {
+                    const cmapResponse = await ewmrsRef.current.fetchColormaps();
+                    if (cmapResponse && cmapResponse.length > 0) {
+                        // Flatten all colormaps from all responses
+                        const allColormaps = cmapResponse.flatMap(r => r.colormaps);
+                        setColormaps(allColormaps);
+                    }
+                } catch (cmapErr) {
+                    console.warn("Failed to fetch colormaps", cmapErr);
+                }
+            } catch (e) {
+                console.warn("EWMRS connection failed", e);
+            }
+            
+            setIsConnected(true);
+            if (ts.length > 0) {
+                setCurrentIndex(ts.length - 1); // Start at latest
+            }
 
         } catch (err) {
-             setError((err as Error).message);
+            setError((err as Error).message);
         } finally {
-             setLoading(false);
+            setLoading(false);
         }
     };
     
@@ -642,6 +656,49 @@ export default function LeafletMap() {
 
     const currentTs = timestamps[currentIndex] || '';
     const { date, time } = formatTimeLabel(currentTs);
+
+    // Determine the active colormap based on the primary visible layer
+    // Maps product names to colormap types
+    const productToColormapType: Record<string, string> = {
+        'CompRefQC': 'reflectivity',
+        'CompRef': 'reflectivity',
+        'Reflectivity': 'reflectivity',
+        'EchoTops': 'EchoTops',
+        'EnhancedEchoTop': 'EchoTops',
+        'EchoTop18': 'EchoTops',
+        'EchoTop30': 'EchoTops',
+        'PrecipRate': 'PrecipitationRate',
+        'QPE_01H': 'QPE',
+        'QPE_03H': 'QPE',
+        'VIL': 'VILDensity',
+        'VILDensity': 'VILDensity',
+        'VII': 'VILDensity',
+    };
+
+    const activeColormap = useMemo(() => {
+        // Find the first visible layer
+        const visibleProducts = Object.keys(activeLayers).filter(k => activeLayers[k].visible);
+        if (visibleProducts.length === 0 || colormaps.length === 0) return null;
+
+        const primaryProduct = visibleProducts[0];
+        const colormapType = productToColormapType[primaryProduct];
+
+        // Try to find by type first
+        if (colormapType) {
+            const byType = colormaps.find(c => c.type === colormapType);
+            if (byType) return byType;
+        }
+
+        // Fallback: try to match by name containing the product name
+        const byName = colormaps.find(c => 
+            c.name.toLowerCase().includes(primaryProduct.toLowerCase()) ||
+            primaryProduct.toLowerCase().includes(c.name.toLowerCase())
+        );
+        if (byName) return byName;
+
+        // Default to first colormap if no match
+        return colormaps[0] || null;
+    }, [activeLayers, colormaps]);
 
     console.log('LeafletMap render: isConnected=', isConnected, 'loading=', loading);
 
@@ -822,6 +879,9 @@ export default function LeafletMap() {
                       <DistanceTool map={mapInstanceRef.current} />
                       <CircleTool map={mapInstanceRef.current} />
                   </MapToolbar>
+
+                  {/* Colormap Legend */}
+                  {isConnected && <ColormapLegend colormap={activeColormap} />}
              </div>
         </div>
     );

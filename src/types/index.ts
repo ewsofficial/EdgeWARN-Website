@@ -10,3 +10,26 @@ export interface StormCellList {
     features: Cell[];
     content?: { features: Cell[] }; // Handle nested structure seen in code
 }
+
+// Colormap types for EWMRS API
+export interface ColormapThreshold {
+    value: number;
+    rgb: [number, number, number];
+}
+
+export interface Colormap {
+    name: string;
+    description: string;
+    type: string;
+    units: string;
+    interpolate: boolean;
+    range: [number, number];
+    thresholds: ColormapThreshold[];
+}
+
+export interface ColormapResponse {
+    source: string;
+    product: string;
+    version: string;
+    colormaps: Colormap[];
+}

@@ -3,6 +3,8 @@
  * Provides methods to interact with the Edge-compute Weather Map Rendering System API
  */
 
+import { ColormapResponse } from '@/types';
+
 export class EWMRSAPI {
     private baseUrl: string;
 
@@ -56,4 +58,21 @@ export class EWMRSAPI {
     getRenderUrl(product: string, timestamp: string): string {
         return `${this.baseUrl}/renders/download?product=${encodeURIComponent(product)}&timestamp=${encodeURIComponent(timestamp)}`;
     }
+
+    /**
+     * Fetch colormap definitions
+     * @returns Array of colormap response objects
+     */
+    async fetchColormaps(): Promise<ColormapResponse[]> {
+        const response = await fetch(`${this.baseUrl}/colormaps`, {
+            headers: { 'Accept': 'application/json' },
+            cache: 'no-store'
+        });
+
+        if (!response.ok) {
+            throw new Error(`EWMRS: Server returned ${response.status}: ${response.statusText}`);
+        }
+        return await response.json();
+    }
 }
+

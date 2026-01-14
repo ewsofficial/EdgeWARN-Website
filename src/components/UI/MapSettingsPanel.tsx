@@ -8,6 +8,32 @@ interface MapSettingsPanelProps {
     onOpacityChange: (product: string, opacity: number) => void;
 }
 
+// Maps product names to human-readable display names
+function getProductDisplayName(product: string): string {
+    const staticMappings: Record<string, string> = {
+        'CompRefQC': 'Composite Reflectivity',
+        'RALA': 'Reflectivity at Lowest Altitude',
+        'PrecipRate': 'Precip. Rate',
+        'VILDensity': 'VIL Density',
+        'QPE_01H': '1-Hour Precipitation',
+        'VII': 'Vertically Integrated Ice',
+    };
+
+    // Check static mappings first
+    if (staticMappings[product]) {
+        return staticMappings[product];
+    }
+
+    // Handle EchoTop[N] pattern
+    const echoTopMatch = product.match(/^EchoTop(\d+)$/);
+    if (echoTopMatch) {
+        return `${echoTopMatch[1]}-dBZ Echo Tops`;
+    }
+
+    // Fallback to original product name
+    return product;
+}
+
 export default function MapSettingsPanel({ 
     products, 
     activeLayers, 
@@ -29,11 +55,12 @@ export default function MapSettingsPanel({
                 {products.map(product => {
                     const layerState = activeLayers[product] || { visible: false, opacity: 0.6 };
                     const isVisible = layerState.visible;
+                    const displayName = getProductDisplayName(product);
 
                     return (
                         <div key={product} className={`p-3 rounded-lg border transition-all ${isVisible ? 'bg-gray-800 border-blue-500/30' : 'bg-gray-900/50 border-gray-800'}`}>
                             <div className="flex items-center justify-between mb-2">
-                                <span className="text-sm font-medium truncate pr-2" title={product}>{product}</span>
+                                <span className="text-sm font-medium truncate pr-2" title={product}>{displayName}</span>
                                 <button 
                                     onClick={() => onLayerToggle(product)}
                                     className={`p-1.5 rounded-md transition-colors ${isVisible ? 'bg-blue-500/20 text-blue-400' : 'text-gray-600 hover:text-gray-400'}`}
@@ -65,3 +92,4 @@ export default function MapSettingsPanel({
         </div>
     );
 }
+
