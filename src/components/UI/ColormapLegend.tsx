@@ -18,7 +18,6 @@ export default function ColormapLegend({ colormap }: ColormapLegendProps) {
         const { thresholds, range, interpolate } = colormap;
         if (thresholds.length === 0) return {};
 
-        const { thresholds, range, interpolate } = colormap;
         const [minVal, maxVal] = range;
         const rangeSpan = maxVal - minVal;
 
