@@ -52,6 +52,7 @@ export default function LeafletMap() {
     // Map refs
     const mapContainerRef = useRef<HTMLDivElement>(null);
     const mapInstanceRef = useRef<L.Map | null>(null);
+    const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
     const currentLayerRef = useRef<L.FeatureGroup | null>(null);
     const overlayLayersRef = useRef<Map<string, L.ImageOverlay>>(new Map()); 
     const contourLayerRef = useRef<L.Rectangle | null>(null);
@@ -97,6 +98,7 @@ export default function LeafletMap() {
             }).addTo(map);
 
             mapInstanceRef.current = map;
+            setMapInstance(map);
 
             // Setup Reference Bounds Layer
             const referenceBounds: L.LatLngBoundsExpression = [[20, -130], [55, -60]];
@@ -114,6 +116,7 @@ export default function LeafletMap() {
              if (mapInstanceRef.current) {
                  mapInstanceRef.current.remove();
                  mapInstanceRef.current = null;
+                 setMapInstance(null);
              }
         };
     }, []);
@@ -336,7 +339,7 @@ export default function LeafletMap() {
              }).addTo(map);
         }
 
-    }, [timestamps, activeLayers, productTimestamps, crisp, showContour]); // Update deps
+    }, [timestamps, activeLayers, productTimestamps, crisp, showContour, apiRef, ewmrsRef]); // Update deps
 
     // Auto-refresh logic (every 30 seconds)
     useEffect(() => {
@@ -479,7 +482,7 @@ export default function LeafletMap() {
         }));
     };
 
-    const handleCellClick = (cell: Cell) => {
+    const handleCellClick = useCallback((cell: Cell) => {
         if (!mapInstanceRef.current || !cell.bbox) return;
 
         // Convert bbox to latlng compatible bounds
@@ -510,7 +513,7 @@ export default function LeafletMap() {
         } catch (e) {
             console.warn("Failed to zoom to cell", e);
         }
-    };
+    }, []);
 
     const currentTs = timestamps[currentIndex] || '';
     const { date, time } = formatTimeLabel(currentTs);
@@ -732,8 +735,8 @@ export default function LeafletMap() {
                   
                   {/* Modular Toolbar */}
                   <MapToolbar>
-                      <DistanceTool map={mapInstanceRef.current} />
-                      <CircleTool map={mapInstanceRef.current} />
+                      <DistanceTool map={mapInstance} />
+                      <CircleTool map={mapInstance} />
                   </MapToolbar>
 
                   {/* Colormap Legend */}

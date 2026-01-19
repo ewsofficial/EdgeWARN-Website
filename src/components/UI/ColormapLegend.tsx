@@ -12,12 +12,11 @@ interface ColormapLegendProps {
  * Positioned at the bottom-left of the map.
  */
 export default function ColormapLegend({ colormap }: ColormapLegendProps) {
-
-    // Moved the hook call unconditionally to the top level to follow React Rules of Hooks
-
+    // Generate gradient CSS or discrete blocks
     const gradientStyle = useMemo(() => {
-        // Safe check: if !colormap or !colormap.thresholds, return empty
-        if (!colormap || !colormap.thresholds || colormap.thresholds.length === 0) return {};
+        if (!colormap) return {};
+        const { thresholds, range, interpolate } = colormap;
+        if (thresholds.length === 0) return {};
 
         const { thresholds, range, interpolate } = colormap;
         const [minVal, maxVal] = range;
@@ -51,7 +50,7 @@ export default function ColormapLegend({ colormap }: ColormapLegendProps) {
     }, [colormap]);
 
     const displayTicks = useMemo(() => {
-        if (!colormap || !colormap.thresholds) return [];
+        if (!colormap) return [];
         const { thresholds, range } = colormap;
         const [minVal, maxVal] = range;
         const rangeSpan = maxVal - minVal;
