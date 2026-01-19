@@ -585,23 +585,30 @@ export default function LeafletMap() {
                 }
              `}</style>
 
-             {/* Combined Left Panel Group - Fixed width to align Rail (3.5rem) + Sidebar (20rem) with Footer */}
-             <div className="flex flex-col flex-shrink-0 z-30 shadow-xl h-full w-[23.5rem] bg-gray-800">
+             {/* Combined Left Panel Group - Responsive */}
+             <div className="flex flex-col flex-shrink-0 z-30 shadow-xl bg-gray-800
+                             absolute bottom-0 w-full h-auto max-h-[60vh]
+                             md:relative md:w-[23.5rem] md:h-full md:max-h-full">
                  
                  {/* Upper Section: Rail + Sidebar Content */}
-                 <div className="flex flex-1 min-h-0 overflow-hidden">
+                 <div className="flex min-h-0 overflow-hidden
+                                 flex-col-reverse
+                                 md:flex-row md:flex-1">
                      
                      {/* Settings Rail */}
-                     <div className="w-14 flex-shrink-0 flex flex-col bg-gray-950 border-r border-gray-800 z-20">
-                         {/* Logo Container - Aligned Height with Sidebar Header */}
-                         <div className="flex-shrink-0 h-14 flex items-center justify-center border-b border-gray-800">
+                     <div className="flex-shrink-0 flex bg-gray-950 z-20
+                                     w-full h-14 flex-row border-t border-gray-800 justify-between
+                                     md:w-14 md:h-full md:flex-col md:border-r md:border-t-0 md:justify-start">
+                         {/* Logo Container - Hidden on Mobile */}
+                         <div className="flex-shrink-0 h-14 items-center justify-center border-b border-gray-800 hidden md:flex">
                              <Link href="/" className="w-8 h-8 flex items-center justify-center opacity-80 hover:opacity-100 transition-opacity cursor-pointer">
                                  <img src="/assets/EdgeWARN.png" alt="EdgeWARN" className="w-full h-full object-contain drop-shadow-md rounded-xl" />
                              </Link>
                          </div>
                          
                          {/* Rail Content */}
-                         <div className="flex-1 flex flex-col items-center py-4 gap-4">
+                         <div className="flex-1 flex items-center gap-4 px-8 justify-between
+                                         md:flex-col md:py-4 md:px-0 md:justify-start">
                             <button 
                                 onClick={() => setActivePanel(activePanel === 'map' ? null : 'map')}
                                 className={`p-3 rounded-xl transition-all ${activePanel === 'map' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-blue-400 hover:bg-gray-800'}`} 
@@ -624,7 +631,7 @@ export default function LeafletMap() {
                                 <List size={22} />
                             </button>
                             
-                            <div className="flex-1" />
+                            <div className="flex-1 hidden md:block" />
                             
                             <button 
                                 onClick={() => setActivePanel(activePanel === 'settings' ? null : 'settings')}
@@ -637,7 +644,9 @@ export default function LeafletMap() {
                      </div>
 
                      {/* Sidebar Content Area */}
-                     <div className="w-80 flex-shrink-0 flex flex-col border-r border-gray-700 bg-gray-800 overflow-y-auto">
+                     <div className={`flex-shrink-0 flex flex-col bg-gray-800 overflow-y-auto border-gray-700
+                                      w-full ${activePanel ? 'h-64 border-b' : 'h-0 border-b-0'}
+                                      md:w-80 md:h-auto md:border-r md:border-b-0 md:flex-1`}>
                           
                           {/* 1. MAP SETTINGS PANEL */}
                           {activePanel === 'map' && (

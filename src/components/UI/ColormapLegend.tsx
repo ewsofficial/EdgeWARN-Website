@@ -84,7 +84,7 @@ export default function ColormapLegend({ colormap }: ColormapLegendProps) {
     const { units, name } = colormap;
 
     return (
-        <div className="absolute bottom-6 left-6 z-[500] pointer-events-auto">
+        <div className="absolute bottom-32 left-4 md:bottom-6 md:left-6 z-[500] pointer-events-auto">
             <div className="bg-gray-900/85 backdrop-blur-md border border-gray-700/50 rounded-xl p-3 shadow-xl min-w-[200px] max-w-[280px]">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-2">
