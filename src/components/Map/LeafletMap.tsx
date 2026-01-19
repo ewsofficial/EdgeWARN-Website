@@ -36,6 +36,7 @@ export default function LeafletMap() {
         apiRef,
         ewmrsRef,
         timestamps,
+        setTimestamps,
         products,
         activeLayers,
         setActiveLayers,
@@ -360,8 +361,7 @@ export default function LeafletMap() {
                                   sortedLatest[sortedLatest.length - 1] !== sortedPrev[sortedPrev.length - 1];
                     
                     if (isNew) {
-                        // Note: timestamps refresh is handled by the hook
-                        // We just trigger a re-render by updating currentIndex
+                        setTimestamps(sortedLatest);
                         currentMainTimestamps = sortedLatest;
                         hasGlobalUpdate = true;
                     }

@@ -24,6 +24,7 @@ export interface UseMapConnectionReturn {
     
     // Data
     timestamps: string[];
+    setTimestamps: React.Dispatch<React.SetStateAction<string[]>>;
     products: string[];
     activeLayers: Record<string, LayerState>;
     setActiveLayers: React.Dispatch<React.SetStateAction<Record<string, LayerState>>>;
@@ -162,6 +163,7 @@ export function useMapConnection(): UseMapConnectionReturn {
         apiRef,
         ewmrsRef,
         timestamps,
+        setTimestamps,
         products,
         activeLayers,
         setActiveLayers,
