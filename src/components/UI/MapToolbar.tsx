@@ -39,7 +39,7 @@ interface MapToolbarProps {
 
 export function MapToolbar({ children }: MapToolbarProps) {
     return (
-        <div className="absolute bottom-4 right-4 z-[500] flex flex-col gap-2">
+        <div className="absolute top-20 right-4 md:bottom-4 md:top-auto z-[500] flex flex-col gap-2">
             {children}
         </div>
     );
