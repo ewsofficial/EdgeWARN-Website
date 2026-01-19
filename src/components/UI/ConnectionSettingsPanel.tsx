@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Wifi, Server, RefreshCw, CheckCircle, XCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Wifi, Server, RefreshCw, CheckCircle, XCircle, Clock, ChevronDown, Trash2 } from 'lucide-react';
+import { getSavedEndpoints, removeEndpoint, SavedEndpoint } from '@/utils/endpoint-cache';
 
 interface ConnectionSettingsPanelProps {
     currentApiUrl: string;
@@ -20,9 +21,44 @@ export default function ConnectionSettingsPanel({
 }: ConnectionSettingsPanelProps) {
     const [apiUrl, setApiUrl] = useState(currentApiUrl);
     const [ewmrsUrl, setEwmrsUrl] = useState(currentEwmrsUrl);
+    const [savedEndpoints, setSavedEndpoints] = useState<SavedEndpoint[]>([]);
+    const [showSavedDropdown, setShowSavedDropdown] = useState(false);
+
+    // Load saved endpoints on mount
+    useEffect(() => {
+        setSavedEndpoints(getSavedEndpoints());
+    }, []);
+
+    // Update local state when currentApiUrl/currentEwmrsUrl change
+    useEffect(() => {
+        setApiUrl(currentApiUrl);
+    }, [currentApiUrl]);
+
+    useEffect(() => {
+        setEwmrsUrl(currentEwmrsUrl);
+    }, [currentEwmrsUrl]);
 
     const handleConnectClick = () => {
         onConnect(apiUrl, ewmrsUrl);
+        // Refresh saved endpoints after connection attempt
+        setTimeout(() => setSavedEndpoints(getSavedEndpoints()), 100);
+    };
+
+    const handleSelectSaved = (endpoint: SavedEndpoint) => {
+        setApiUrl(endpoint.apiUrl);
+        setEwmrsUrl(endpoint.ewmrsUrl);
+        setShowSavedDropdown(false);
+    };
+
+    const handleRemoveSaved = (e: React.MouseEvent, id: string) => {
+        e.stopPropagation();
+        removeEndpoint(id);
+        setSavedEndpoints(getSavedEndpoints());
+    };
+
+    const formatTimestamp = (timestamp: number) => {
+        const date = new Date(timestamp);
+        return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     };
 
     return (
@@ -51,6 +87,49 @@ export default function ConnectionSettingsPanel({
                         </div>
                     </div>
                 </div>
+
+                {/* Saved Endpoints Dropdown */}
+                {savedEndpoints.length > 0 && (
+                    <div className="relative">
+                        <button
+                            type="button"
+                            onClick={() => setShowSavedDropdown(!showSavedDropdown)}
+                            className="w-full flex items-center justify-between gap-2 bg-blue-600/20 border border-blue-500/30 text-blue-400 rounded-lg px-3 py-2 text-sm hover:bg-blue-600/30 transition-colors"
+                        >
+                            <div className="flex items-center gap-2">
+                                <Clock size={14} />
+                                <span>Saved ({savedEndpoints.length})</span>
+                            </div>
+                            <ChevronDown size={14} className={`transform transition-transform ${showSavedDropdown ? 'rotate-180' : ''}`} />
+                        </button>
+
+                        {showSavedDropdown && (
+                            <div className="absolute z-10 w-full mt-2 bg-gray-900 border border-gray-700 rounded-lg shadow-xl overflow-hidden">
+                                {savedEndpoints.map((endpoint) => (
+                                    <div
+                                        key={endpoint.id}
+                                        onClick={() => handleSelectSaved(endpoint)}
+                                        className="flex items-center justify-between px-3 py-2 hover:bg-gray-700 cursor-pointer border-b border-gray-700/50 last:border-0 group"
+                                    >
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-sm font-medium text-gray-200 truncate">{endpoint.name}</div>
+                                            <div className="text-xs text-gray-500 truncate">{endpoint.apiUrl}</div>
+                                            <div className="text-xs text-gray-600">{formatTimestamp(endpoint.lastUsed)}</div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={(e) => handleRemoveSaved(e, endpoint.id)}
+                                            className="ml-2 p-1 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors opacity-0 group-hover:opacity-100"
+                                            title="Remove saved endpoint"
+                                        >
+                                            <Trash2 size={12} />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {/* Settings Form */}
                 <div className="space-y-4">
@@ -110,3 +189,4 @@ export default function ConnectionSettingsPanel({
         </div>
     );
 }
+

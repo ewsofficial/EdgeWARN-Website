@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { EdgeWARNAPI } from '@/utils/edgewarn-api';
 import { EWMRSAPI } from '@/utils/ewmrs-api';
 import { Colormap, LayerState } from '@/types';
 import { DEFAULT_LAYER_OPACITY, DEFAULT_PRODUCT } from '../constants';
+import { getLastUsedEndpoint, touchEndpoint, saveEndpoint, generateEndpointName } from '@/utils/endpoint-cache';
 
 export interface UseMapConnectionReturn {
     // URLs
@@ -45,7 +46,7 @@ export interface UseMapConnectionReturn {
 }
 
 export function useMapConnection(): UseMapConnectionReturn {
-    // URLs
+    // URLs - initialize with defaults, will be updated from cache in useEffect
     const [apiUrl, setApiUrl] = useState('http://localhost:5000');
     const [ewmrsUrl, setEwmrsUrl] = useState('http://localhost:3003');
 
@@ -70,6 +71,15 @@ export function useMapConnection(): UseMapConnectionReturn {
 
     // Flash state
     const [isFlashing, setIsFlashing] = useState(false);
+
+    // Load cached endpoint on mount
+    useEffect(() => {
+        const lastUsed = getLastUsedEndpoint();
+        if (lastUsed) {
+            setApiUrl(lastUsed.apiUrl);
+            setEwmrsUrl(lastUsed.ewmrsUrl);
+        }
+    }, []);
 
     // Connect handler
     const handleConnect = useCallback(async (overrideApiUrl?: string, overrideEwmrsUrl?: string) => {
@@ -144,6 +154,14 @@ export function useMapConnection(): UseMapConnectionReturn {
             if (ts.length > 0) {
                 setCurrentIndex(ts.length - 1);
             }
+
+            // Cache the successful endpoint
+            touchEndpoint(finalApiUrl, finalEwmrsUrl);
+            saveEndpoint({
+                name: generateEndpointName(finalApiUrl),
+                apiUrl: finalApiUrl,
+                ewmrsUrl: finalEwmrsUrl,
+            });
 
         } catch (err) {
             setError((err as Error).message);

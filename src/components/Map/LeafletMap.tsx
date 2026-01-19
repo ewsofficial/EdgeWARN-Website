@@ -343,24 +343,34 @@ export default function LeafletMap() {
     }, [timestamps, activeLayers, productTimestamps, crisp, showContour, apiRef, ewmrsRef]); // Update deps
 
     // Auto-refresh logic (every 30 seconds)
+    // Use refs to avoid stale closure issues in the interval
+    const timestampsRef = useRef(timestamps);
+    const productTimestampsRef = useRef(productTimestamps);
+    const activeLayersRef = useRef(activeLayers);
+    
+    useEffect(() => { timestampsRef.current = timestamps; }, [timestamps]);
+    useEffect(() => { productTimestampsRef.current = productTimestamps; }, [productTimestamps]);
+    useEffect(() => { activeLayersRef.current = activeLayers; }, [activeLayers]);
+
     useEffect(() => {
         if (!isConnected || !apiRef.current) return;
 
         const interval = setInterval(async () => {
             let hasGlobalUpdate = false;
-            let currentMainTimestamps = timestamps;
+            let currentMainTimestamps = timestampsRef.current;
 
             // 1. Check EdgeWARN timestamps
             try {
                 const latestTimestamps = await apiRef.current?.fetchTimestamps();
                 if (latestTimestamps && latestTimestamps.length > 0) {
                     const sortedLatest = [...latestTimestamps].sort();
-                    const sortedPrev = [...timestamps].sort();
+                    const sortedPrev = [...timestampsRef.current].sort();
 
                     const isNew = sortedLatest.length !== sortedPrev.length ||
                                   sortedLatest[sortedLatest.length - 1] !== sortedPrev[sortedPrev.length - 1];
 
                     if (isNew) {
+                        console.log('New EdgeWARN timestamps detected:', sortedLatest[sortedLatest.length - 1]);
                         setTimestamps(sortedLatest);
                         currentMainTimestamps = sortedLatest;
                         hasGlobalUpdate = true;
@@ -373,7 +383,7 @@ export default function LeafletMap() {
             // 2. Check EWMRS timestamps (for all visible products)
             // We iterate over all products that are visible or have been visible to keep cache fresh?
             // For now, let's just refresh visible ones
-            const visibleProds = Object.keys(activeLayers).filter(k => activeLayers[k].visible);
+            const visibleProds = Object.keys(activeLayersRef.current).filter(k => activeLayersRef.current[k].visible);
 
             for (const prod of visibleProds) {
                 if (ewmrsRef.current) {
@@ -381,13 +391,14 @@ export default function LeafletMap() {
                         const latestProdTs = await ewmrsRef.current.getProductTimestamps(prod);
                         if (latestProdTs && latestProdTs.length > 0) {
                             const sortedLatest = [...latestProdTs].sort();
-                            const currentCache = productTimestamps[prod] || [];
+                            const currentCache = productTimestampsRef.current[prod] || [];
                             const sortedPrev = [...currentCache].sort();
 
                             const isNew = sortedLatest.length !== sortedPrev.length ||
                                           sortedLatest[sortedLatest.length - 1] !== sortedPrev[sortedPrev.length - 1];
 
                             if (isNew) {
+                                console.log(`New EWMRS timestamps detected for ${prod}:`, sortedLatest[sortedLatest.length - 1]);
                                 setProductTimestamps(prev => ({
                                     ...prev,
                                     [prod]: sortedLatest
@@ -402,6 +413,7 @@ export default function LeafletMap() {
             }
 
             if (hasGlobalUpdate) {
+                console.log('Global update detected, flashing and scrolling to latest');
                 // Flash for 1 second
                 setIsFlashing(true);
                 setTimeout(() => setIsFlashing(false), 1000);
@@ -413,7 +425,7 @@ export default function LeafletMap() {
         }, 30000);
 
         return () => clearInterval(interval);
-    }, [isConnected, timestamps, productTimestamps, activeLayers]);
+    }, [isConnected]); // Only depend on isConnected - refs handle the rest
 
     // Debounce/Listen to slide change
     useEffect(() => {

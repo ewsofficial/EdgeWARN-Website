@@ -1,6 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { getSavedEndpoints, removeEndpoint, SavedEndpoint } from '@/utils/endpoint-cache';
+import { ChevronDown, Trash2, Clock } from 'lucide-react';
 
 interface ConnectionModalProps {
     isOpen: boolean;
@@ -21,12 +23,45 @@ export default function ConnectionModal({
 }: ConnectionModalProps) {
     const [apiUrl, setApiUrl] = useState(initialApiUrl);
     const [ewmrsUrl, setEwmrsUrl] = useState(initialEwmrsUrl);
+    const [savedEndpoints, setSavedEndpoints] = useState<SavedEndpoint[]>([]);
+    const [showSavedDropdown, setShowSavedDropdown] = useState(false);
+
+    // Load saved endpoints on mount
+    useEffect(() => {
+        setSavedEndpoints(getSavedEndpoints());
+    }, []);
+
+    // Update local state when initialApiUrl/initialEwmrsUrl change (from cache)
+    useEffect(() => {
+        setApiUrl(initialApiUrl);
+    }, [initialApiUrl]);
+
+    useEffect(() => {
+        setEwmrsUrl(initialEwmrsUrl);
+    }, [initialEwmrsUrl]);
 
     if (!isOpen) return null;
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         onConnect(apiUrl, ewmrsUrl);
+    };
+
+    const handleSelectSaved = (endpoint: SavedEndpoint) => {
+        setApiUrl(endpoint.apiUrl);
+        setEwmrsUrl(endpoint.ewmrsUrl);
+        setShowSavedDropdown(false);
+    };
+
+    const handleRemoveSaved = (e: React.MouseEvent, id: string) => {
+        e.stopPropagation();
+        removeEndpoint(id);
+        setSavedEndpoints(getSavedEndpoints());
+    };
+
+    const formatTimestamp = (timestamp: number) => {
+        const date = new Date(timestamp);
+        return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     };
 
     return (
@@ -46,6 +81,49 @@ export default function ConnectionModal({
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
+                    {/* Saved Endpoints Dropdown */}
+                    {savedEndpoints.length > 0 && (
+                        <div className="relative">
+                            <button
+                                type="button"
+                                onClick={() => setShowSavedDropdown(!showSavedDropdown)}
+                                className="w-full flex items-center justify-between gap-2 bg-blue-600/20 border border-blue-500/30 text-blue-400 rounded-lg px-4 py-2.5 text-sm hover:bg-blue-600/30 transition-colors"
+                            >
+                                <div className="flex items-center gap-2">
+                                    <Clock size={16} />
+                                    <span>Saved Endpoints ({savedEndpoints.length})</span>
+                                </div>
+                                <ChevronDown size={16} className={`transform transition-transform ${showSavedDropdown ? 'rotate-180' : ''}`} />
+                            </button>
+
+                            {showSavedDropdown && (
+                                <div className="absolute z-10 w-full mt-2 bg-gray-800 border border-gray-700 rounded-lg shadow-xl overflow-hidden">
+                                    {savedEndpoints.map((endpoint) => (
+                                        <div
+                                            key={endpoint.id}
+                                            onClick={() => handleSelectSaved(endpoint)}
+                                            className="flex items-center justify-between px-4 py-3 hover:bg-gray-700 cursor-pointer border-b border-gray-700/50 last:border-0 group"
+                                        >
+                                            <div className="flex-1 min-w-0">
+                                                <div className="text-sm font-medium text-gray-200 truncate">{endpoint.name}</div>
+                                                <div className="text-xs text-gray-500 truncate">{endpoint.apiUrl}</div>
+                                                <div className="text-xs text-gray-600">{formatTimestamp(endpoint.lastUsed)}</div>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={(e) => handleRemoveSaved(e, endpoint.id)}
+                                                className="ml-2 p-1.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors opacity-0 group-hover:opacity-100"
+                                                title="Remove saved endpoint"
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     <div className="space-y-1">
                         <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">
                             Core API Endpoint
@@ -134,5 +212,3 @@ export default function ConnectionModal({
     );
 }
 
-// Add simple CSS animation for the button gradient if not present globally
-// In a real app, this would be in global CSS or Tailwind config
