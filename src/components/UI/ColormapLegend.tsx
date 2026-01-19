@@ -18,6 +18,7 @@ export default function ColormapLegend({ colormap }: ColormapLegendProps) {
         const { thresholds, range, interpolate } = colormap;
         if (thresholds.length === 0) return {};
 
+        const { thresholds, range, interpolate } = colormap;
         const [minVal, maxVal] = range;
         const rangeSpan = maxVal - minVal;
 
@@ -48,7 +49,6 @@ export default function ColormapLegend({ colormap }: ColormapLegendProps) {
         }
     }, [colormap]);
 
-    // Select a subset of ticks for display (avoid overcrowding)
     const displayTicks = useMemo(() => {
         if (!colormap) return [];
         const { thresholds, range } = colormap;
