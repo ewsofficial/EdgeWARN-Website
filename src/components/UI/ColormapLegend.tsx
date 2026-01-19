@@ -12,14 +12,14 @@ interface ColormapLegendProps {
  * Positioned at the bottom-left of the map.
  */
 export default function ColormapLegend({ colormap }: ColormapLegendProps) {
-    if (!colormap) return null;
 
-    const { thresholds, range, units, name, interpolate } = colormap;
+    // Moved the hook call unconditionally to the top level to follow React Rules of Hooks
 
-    // Generate gradient CSS or discrete blocks
     const gradientStyle = useMemo(() => {
-        if (thresholds.length === 0) return {};
+        // Safe check: if !colormap or !colormap.thresholds, return empty
+        if (!colormap || !colormap.thresholds || colormap.thresholds.length === 0) return {};
 
+        const { thresholds, range, interpolate } = colormap;
         const [minVal, maxVal] = range;
         const rangeSpan = maxVal - minVal;
 
@@ -48,10 +48,11 @@ export default function ColormapLegend({ colormap }: ColormapLegendProps) {
                 background: `linear-gradient(to right, ${stops.join(', ')})`
             };
         }
-    }, [thresholds, range, interpolate]);
+    }, [colormap]);
 
-    // Select a subset of ticks for display (avoid overcrowding)
     const displayTicks = useMemo(() => {
+        if (!colormap || !colormap.thresholds) return [];
+        const { thresholds, range } = colormap;
         const [minVal, maxVal] = range;
         const rangeSpan = maxVal - minVal;
         
@@ -79,7 +80,10 @@ export default function ColormapLegend({ colormap }: ColormapLegendProps) {
         }
         
         return ticks;
-    }, [thresholds, range]);
+    }, [colormap]);
+
+    if (!colormap) return null;
+    const { units, name } = colormap;
 
     return (
         <div className="absolute bottom-6 left-6 z-[500] pointer-events-auto">
