@@ -434,15 +434,33 @@ export default function LeafletMap() {
                         else if (dewVal >= 12) { colorClass = 'dot-green'; colorHex = '#22c55e'; }
                     }
 
+                    // Define SVG strings for icons
+                    const PLANE_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h20"/><path d="M13 2l9 10-9 10"/><path d="M13 2v20"/></svg>`; // Actually this is an arrow, let's use a real plane
+                    const REAL_PLANE_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h20"/><path d="M20 12v-2a2 2 0 0 0-2-2h-3.5L8 2H5l3 6H5l-1 2h12.5"/><path d="M16 16l-1.5 6H12l2-6"/></svg>`; // Rough plane geometry
+                    // Simpler Lucide Plane
+                    const LUCIDE_PLANE = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h20"/><path d="M20 12v-2a2 2 0 0 0-2-2h-3.5L8 2H5l3 6H5l-1 2h1.5"/><path d="M16 16l-2 6h-2.5l1.5-6"/></svg>`;
+
+                    const STATION_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M8 10a4 4 0 0 1 8 0"/><path d="M4 14a8 8 0 0 1 16 0"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/></svg>`; // Antenna-ish
+
+                    const TEMP_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block mr-1"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>`;
+                    const DEW_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block mr-1"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>`;
+                    const WIND_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block mr-1"><path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"/><path d="M9.6 4.6A2 2 0 1 1 11 8H2"/><path d="M12.6 19.4A2 2 0 1 0 14 16H2"/></svg>`;
+
+                    // Determine icon based on station code length (ICAO = 4 usually)
+                    const isAirport = entry.station.length === 4;
+                    const markerIconSvg = isAirport ? LUCIDE_PLANE : STATION_ICON;
+
                     const iconHtml = `
                         <div class="metar-glow" style="background-color: ${colorHex}"></div>
-                        <div class="metar-dot ${colorClass}"></div>
+                        <div class="metar-dot ${colorClass}" style="display:flex;align-items:center;justify-content:center;width:20px;height:20px;background:${colorHex};border:1px solid rgba(255,255,255,0.8);">
+                            <div style="color:white; transform: scale(0.8);">${markerIconSvg}</div>
+                        </div>
                     `;
 
                     const customIcon = L.divIcon({
                         className: 'metar-marker',
                         html: iconHtml,
-                        iconSize: [24, 24], // match css dimensions roughly (glow is 24px)
+                        iconSize: [24, 24],
                         iconAnchor: [12, 12]
                     });
 
@@ -465,7 +483,7 @@ export default function LeafletMap() {
                     const tempStr = formatTemp(entry.temperature);
                     const dewStr = formatTemp(entry.dewpoint);
 
-                    // Modern Glass Popup
+                    // Modern Glass Popup with Icons
                     const popup = `
                         <div class="popup-header">
                             <span class="popup-station">${entry.station}</span>
@@ -473,15 +491,15 @@ export default function LeafletMap() {
                         </div>
                         <div class="popup-body">
                             <div class="popup-metric">
-                                <span class="metric-label">Temp</span>
+                                <span class="metric-label">${TEMP_ICON} Temp</span>
                                 <div><span class="metric-value">${tempStr}</span><span class="metric-unit">°C</span></div>
                             </div>
                             <div class="popup-metric">
-                                <span class="metric-label">Dewpoint</span>
+                                <span class="metric-label">${DEW_ICON} Dewpoint</span>
                                 <div><span class="metric-value">${dewStr}</span><span class="metric-unit">°C</span></div>
                             </div>
                             <div class="metric-row-full">
-                                <span class="metric-label">Wind</span>
+                                <span class="metric-label">${WIND_ICON} Wind</span>
                                 <div><span class="metric-value">${windStr}</span></div>
                             </div>
                         </div>
