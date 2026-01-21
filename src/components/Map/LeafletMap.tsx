@@ -23,7 +23,11 @@ import {
     PRODUCT_TO_COLORMAP_TYPE,
     CELL_POLYGON_STYLE,
     FORECAST_CONE_STYLE,
+    SPC_OUTLOOK_COLORS,
+    SPC_LAYER_STYLE,
 } from './constants';
+import { fetchSPCDay1Outlook } from '@/utils/spc-api';
+import { SPCOutlookFeature } from '@/types';
 
 export default function LeafletMap() {
     // Use custom hook for connection state and handlers
@@ -59,8 +63,11 @@ export default function LeafletMap() {
     const contourLayerRef = useRef<L.Rectangle | null>(null);
     const boundsLayerRef = useRef<L.Rectangle | null>(null);
 
+    const spcLayerRef = useRef<L.GeoJSON | null>(null);
+
     // Local UI state
     const [isPlaying, setIsPlaying] = useState(false);
+    const [showSpcOutlook, setShowSpcOutlook] = useState(false);
     const [currentCells, setCurrentCells] = useState<Cell[]>([]);
     const [activePanel, setActivePanel] = useState<'map' | 'connection' | 'list' | 'settings' | null>(null);
     const [selectedCellInfo, setSelectedCellInfo] = useState<string | null>(null);
@@ -133,6 +140,55 @@ export default function LeafletMap() {
             boundsLayerRef.current.remove();
         }
     }, [showBounds]);
+
+    // Handle SPC Outlook Layer
+    useEffect(() => {
+        const map = mapInstanceRef.current;
+        if (!map) return;
+
+        const loadSpcLayer = async () => {
+            if (showSpcOutlook) {
+                if (spcLayerRef.current) return; // Already loaded
+
+                try {
+                    const data = await fetchSPCDay1Outlook('categorical');
+                    
+                    spcLayerRef.current = L.geoJSON(data as any, {
+                        style: (feature) => {
+                            const label = feature?.properties?.LABEL;
+                            const color = SPC_OUTLOOK_COLORS[label] || '#808080';
+                            return {
+                                ...SPC_LAYER_STYLE,
+                                color: color,
+                                fillColor: color
+                            };
+                        },
+                        onEachFeature: (feature, layer) => {
+                             if (feature.properties) {
+                                  let popupContent = `<div class="p-2">
+                                    <h3 class="font-bold border-b mb-1">SPC Day 1 Outlook</h3>
+                                    <p><strong>Threat:</strong> ${feature.properties.LABEL2 || feature.properties.LABEL}</p>
+                                    <p><strong>Issued:</strong> ${feature.properties.ISSUE}</p>
+                                    <p><strong>Expires:</strong> ${feature.properties.EXPIRE}</p>
+                                  </div>`;
+                                  layer.bindPopup(popupContent);
+                             }
+                        }
+                    }).addTo(map);
+                    spcLayerRef.current.bringToBack(); // Keep it below storm cells/warnings
+                } catch (err) {
+                    console.error("Failed to load SPC layer", err);
+                }
+            } else {
+                if (spcLayerRef.current) {
+                    map.removeLayer(spcLayerRef.current);
+                    spcLayerRef.current = null;
+                }
+            }
+        };
+
+        loadSpcLayer();
+    }, [showSpcOutlook]);
 
     // Load Data Logic
     const loadData = useCallback(async (index: number) => {
@@ -658,6 +714,8 @@ export default function LeafletMap() {
                                   activeLayers={activeLayers}
                                   onLayerToggle={toggleLayer}
                                   onOpacityChange={changeOpacity}
+                                  showSpcOutlook={showSpcOutlook}
+                                  onToggleSpcOutlook={() => setShowSpcOutlook(!showSpcOutlook)}
                               />
                           )}
 

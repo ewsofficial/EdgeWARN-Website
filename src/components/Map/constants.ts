@@ -59,3 +59,20 @@ export const FORECAST_CONE_STYLE = {
     dashArray: '4, 4',
     interactive: false,
 };
+
+// SPC Day 1 Outlook Colors (Categorical)
+export const SPC_OUTLOOK_COLORS: Record<string, string> = {
+    'TSTM': '#c0e8c0', // General Thunderstorms (Light Green)
+    'MRGL': '#006400', // Marginal (Dark Green - official is usually dark green)
+    'SLGT': '#f6f600', // Slight (Yellow)
+    'ENH': '#ffbf00',  // Enhanced (Orange)
+    'MDT': '#ff0000',  // Moderate (Red)
+    'HIGH': '#ff00ff', // High (Magenta)
+};
+
+// SPC Layer base style
+export const SPC_LAYER_STYLE = {
+    weight: 2,
+    opacity: 0.8,
+    fillOpacity: 0.4,
+};

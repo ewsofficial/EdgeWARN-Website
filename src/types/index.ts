@@ -38,4 +38,21 @@ export interface ColormapResponse {
 export interface LayerState {
     visible: boolean;
     opacity: number;
+    // Add other layer specific props if needed
+}
+
+// SPC Outlook Types
+export interface SPCOutlookFeature {
+    type: "Feature";
+    geometry: GeoJSON.Geometry;
+    properties: {
+        LABEL: string;      // e.g., "TSTM", "MRGL", "SLGT", "ENH", "MDT", "HIGH"
+        LABEL2: string;     // Full label text
+        stroke: string;     // Outline color
+        fill: string;       // Fill color
+        DN: number;         // Digital Number (threat level)
+        VALID: string;      // Valid time
+        EXPIRE: string;     // Expiration time
+        ISSUE: string;      // Issue time
+    };
 }
