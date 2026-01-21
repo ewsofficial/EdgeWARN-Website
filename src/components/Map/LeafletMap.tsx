@@ -413,20 +413,48 @@ export default function LeafletMap() {
                     if (!show) return;
                     visibleCount++;
 
-                    // Coordinates in data are [lat, lon]
-                    const marker = L.circleMarker(entry.coordinates, {
-                        radius: 5,
-                        fillColor: '#06b6d4', // cyan-500
-                        color: '#ffffff',
-                        weight: 1,
-                        opacity: 1,
-                        fillOpacity: 0.9
+                    // Parse temperature for color coding (Celsius)
+                    // thresholds: <12 blue, 12-15 green, 15-18 yellow, 18-21 orange, >21 red
+                    const parseTempVal = (t: string | number | null | undefined): number | null => {
+                        if (t === null || t === undefined) return null;
+                        let s = String(t);
+                        if (s.startsWith('M')) s = '-' + s.substring(1);
+                        const val = parseFloat(s);
+                        return isNaN(val) ? null : val;
+                    };
+
+                    const dewVal = parseTempVal(entry.dewpoint);
+                    let colorClass = 'dot-blue';
+                    let colorHex = '#3b82f6';
+
+                    if (dewVal !== null) {
+                        if (dewVal >= 21) { colorClass = 'dot-red'; colorHex = '#ef4444'; }
+                        else if (dewVal >= 18) { colorClass = 'dot-orange'; colorHex = '#f97316'; }
+                        else if (dewVal >= 15) { colorClass = 'dot-yellow'; colorHex = '#eab308'; }
+                        else if (dewVal >= 12) { colorClass = 'dot-green'; colorHex = '#22c55e'; }
+                    }
+
+                    const iconHtml = `
+                        <div class="metar-glow" style="background-color: ${colorHex}"></div>
+                        <div class="metar-dot ${colorClass}"></div>
+                    `;
+
+                    const customIcon = L.divIcon({
+                        className: 'metar-marker',
+                        html: iconHtml,
+                        iconSize: [24, 24], // match css dimensions roughly (glow is 24px)
+                        iconAnchor: [12, 12]
+                    });
+
+                    const marker = L.marker(entry.coordinates, {
+                        icon: customIcon,
+                        title: `${entry.station}: ${entry.temperature}/${entry.dewpoint}`
                     });
 
                     let windStr = "N/A";
                     if (entry.wind) {
-                        const gustStr = entry.wind.gust ? `G${entry.wind.gust}` : '';
-                        windStr = `${entry.wind.direction}° @ ${entry.wind.speed}kt ${gustStr}`;
+                        const gustStr = entry.wind.gust ? ` G${entry.wind.gust}` : '';
+                        windStr = `${entry.wind.direction}° @ ${entry.wind.speed}kt${gustStr}`;
                     }
 
                     // Format temperature and dewpoint (M -> -)
@@ -437,19 +465,35 @@ export default function LeafletMap() {
                     const tempStr = formatTemp(entry.temperature);
                     const dewStr = formatTemp(entry.dewpoint);
 
+                    // Modern Glass Popup
                     const popup = `
-                        <div class="p-2 font-sans text-gray-900">
-                            <h3 class="font-bold border-b border-gray-200 mb-1 pb-1">${entry.station}</h3>
-                            <div class="text-sm space-y-0.5">
-                                <p><strong>Time:</strong> ${entry.observation_time}</p>
-                                <p><strong>Temp:</strong> ${tempStr}°C <span class="text-gray-400">|</span> <strong>Dew:</strong> ${dewStr}°C</p>
-                                <p><strong>Wind:</strong> ${windStr}</p>
+                        <div class="popup-header">
+                            <span class="popup-station">${entry.station}</span>
+                            <span class="popup-time">${entry.observation_time.substring(11, 16)}Z</span>
+                        </div>
+                        <div class="popup-body">
+                            <div class="popup-metric">
+                                <span class="metric-label">Temp</span>
+                                <div><span class="metric-value">${tempStr}</span><span class="metric-unit">°C</span></div>
+                            </div>
+                            <div class="popup-metric">
+                                <span class="metric-label">Dewpoint</span>
+                                <div><span class="metric-value">${dewStr}</span><span class="metric-unit">°C</span></div>
+                            </div>
+                            <div class="metric-row-full">
+                                <span class="metric-label">Wind</span>
+                                <div><span class="metric-value">${windStr}</span></div>
                             </div>
                         </div>
+                        <div class="popup-footer">
+                           RAW: ${entry.raw_text || 'N/A'}
+                        </div>
                      `;
+
                     marker.bindPopup(popup, {
                         closeButton: false,
-                        className: 'metar-popup'
+                        className: 'metar-popup',
+                        maxWidth: 300
                     });
                     marker.addTo(metarLayerRef.current!);
                 });
