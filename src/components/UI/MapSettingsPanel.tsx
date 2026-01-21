@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Layers, Eye, EyeOff, ChevronDown, ChevronRight, Wind, CloudHail, Tornado, Waves, CloudRain, ArrowUpFromLine, Droplets, Activity, Thermometer } from 'lucide-react';
+import { Layers, Eye, EyeOff, ChevronDown, ChevronRight, Wind, CloudHail, Tornado, Waves, CloudRain, ArrowUpFromLine, Droplets, Activity, Thermometer, AlertTriangle } from 'lucide-react';
 
 interface MapSettingsPanelProps {
     products: string[];
@@ -16,6 +16,8 @@ interface MapSettingsPanelProps {
     onToggleSpcWind?: () => void;
     showMetar?: boolean;
     onToggleMetar?: () => void;
+    showNWSAlerts?: boolean;
+    onToggleNWSAlerts?: () => void;
 }
 
 // Maps product names to human-readable display names
@@ -71,6 +73,8 @@ export default function MapSettingsPanel({
     onToggleSpcWind,
     showMetar = false,
     onToggleMetar,
+    showNWSAlerts = false,
+    onToggleNWSAlerts,
 }: MapSettingsPanelProps) {
     const [openSections, setOpenSections] = useState<Record<string, boolean>>({
         'spc': true,
@@ -194,6 +198,13 @@ export default function MapSettingsPanel({
                                 onToggle={onToggleMetar}
                                 colorClass="cyan"
                                 icon={Thermometer}
+                            />
+                            <OverlayItem
+                                label="NWS Alerts"
+                                active={!!showNWSAlerts}
+                                onToggle={onToggleNWSAlerts}
+                                colorClass="amber"
+                                icon={AlertTriangle}
                             />
                         </div>
                     )}

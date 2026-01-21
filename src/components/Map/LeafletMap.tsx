@@ -5,7 +5,8 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import Link from 'next/link';
 import { Map as MapIcon, Wifi, List, Settings } from 'lucide-react';
-import { Cell } from '@/types';
+import { Cell, NWSAlertFeature } from '@/types';
+import { ZoneResolver } from '@/utils/nws-geoloader';
 import { formatTimeLabel, findClosestTimestamp } from '@/utils/timestamp';
 import SlidebarControl from '../UI/SlidebarControl';
 import { MapToolbar } from '../UI/MapToolbar';
@@ -76,6 +77,10 @@ export default function LeafletMap() {
     const lastMetarTsRef = useRef<string | null>(null);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const lastMetarDataRef = useRef<any>(null);
+    const nwsLayerRef = useRef<L.LayerGroup | null>(null);
+    const lastNwsTsRef = useRef<string | null>(null);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const lastNwsDataRef = useRef<any>(null);
 
     // Local UI state
     const [isPlaying, setIsPlaying] = useState(false);
@@ -84,7 +89,9 @@ export default function LeafletMap() {
     const [showSpcHail, setShowSpcHail] = useState(false);
     const [showSpcWind, setShowSpcWind] = useState(false);
     const [showMetar, setShowMetar] = useState(false);
+    const [showNWSAlerts, setShowNWSAlerts] = useState(false);
     const [metarTimestamps, setMetarTimestamps] = useState<string[]>([]);
+    const [nwsTimestamps, setNwsTimestamps] = useState<string[]>([]);
     const [currentCells, setCurrentCells] = useState<Cell[]>([]);
     const [activePanel, setActivePanel] = useState<'map' | 'connection' | 'list' | 'settings' | null>(null);
     const [selectedCellInfo, setSelectedCellInfo] = useState<string | null>(null);
@@ -295,6 +302,13 @@ export default function LeafletMap() {
         }
     }, [showMetar, metarTimestamps.length]);
 
+    // Effect for NWS Alerts - Fetch timestamps
+    useEffect(() => {
+        if (showNWSAlerts && nwsTimestamps.length === 0 && apiRef.current) {
+            apiRef.current.fetchNWSTimestamps().then(ts => setNwsTimestamps(ts.sort())).catch(e => console.error("NWS TS error", e));
+        }
+    }, [showNWSAlerts, nwsTimestamps.length]);
+
     useEffect(() => {
         const map = mapInstanceRef.current;
         if (!map) return;
@@ -442,9 +456,9 @@ export default function LeafletMap() {
 
                     const STATION_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M8 10a4 4 0 0 1 8 0"/><path d="M4 14a8 8 0 0 1 16 0"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/></svg>`; // Antenna-ish
 
-                    const TEMP_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block mr-1"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>`;
-                    const DEW_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block mr-1"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>`;
-                    const WIND_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block mr-1"><path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"/><path d="M9.6 4.6A2 2 0 1 1 11 8H2"/><path d="M12.6 19.4A2 2 0 1 0 14 16H2"/></svg>`;
+                    const TEMP_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>`;
+                    const DEW_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>`;
+                    const WIND_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block"><path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"/><path d="M9.6 4.6A2 2 0 1 1 11 8H2"/><path d="M12.6 19.4A2 2 0 1 0 14 16H2"/></svg>`;
 
                     // Determine icon based on station code length (ICAO = 4 usually)
                     const isAirport = entry.station.length === 4;
@@ -487,24 +501,26 @@ export default function LeafletMap() {
                     const popup = `
                         <div class="popup-header">
                             <span class="popup-station">${entry.station}</span>
-                            <span class="popup-time">${entry.observation_time.substring(11, 16)}Z</span>
+                            <span class="popup-time-badge">${entry.observation_time.substring(11, 16)}Z</span>
                         </div>
                         <div class="popup-body">
-                            <div class="popup-metric">
-                                <span class="metric-label">${TEMP_ICON} Temp</span>
-                                <div><span class="metric-value">${tempStr}</span><span class="metric-unit">°C</span></div>
+                            <div class="metrics-grid">
+                                <div class="popup-metric">
+                                    <span class="metric-label">${TEMP_ICON} Temp</span>
+                                    <div><span class="metric-value">${tempStr}</span><span class="metric-unit">°C</span></div>
+                                </div>
+                                <div class="popup-metric">
+                                    <span class="metric-label">${DEW_ICON} Dewpoint</span>
+                                    <div><span class="metric-value">${dewStr}</span><span class="metric-unit">°C</span></div>
+                                </div>
                             </div>
-                            <div class="popup-metric">
-                                <span class="metric-label">${DEW_ICON} Dewpoint</span>
-                                <div><span class="metric-value">${dewStr}</span><span class="metric-unit">°C</span></div>
+                            <div class="wind-section">
+                                <div class="wind-icon-box">${WIND_ICON}</div>
+                                <div class="wind-info">
+                                    <span class="wind-label">Wind Condition</span>
+                                    <span class="wind-value">${windStr}</span>
+                                </div>
                             </div>
-                            <div class="metric-row-full">
-                                <span class="metric-label">${WIND_ICON} Wind</span>
-                                <div><span class="metric-value">${windStr}</span></div>
-                            </div>
-                        </div>
-                        <div class="popup-footer">
-                           RAW: ${entry.raw_text || 'N/A'}
                         </div>
                      `;
 
@@ -523,6 +539,175 @@ export default function LeafletMap() {
 
         renderMetar();
     }, [showMetar, currentIndex, timestamps, metarTimestamps, currentZoom, refreshTrigger]);
+
+    // Effect for NWS Alerts Rendering
+    useEffect(() => {
+        const map = mapInstanceRef.current;
+        if (!map) return;
+
+        if (!showNWSAlerts) {
+            if (nwsLayerRef.current) {
+                map.removeLayer(nwsLayerRef.current);
+                nwsLayerRef.current = null;
+                lastNwsTsRef.current = null;
+            }
+            return;
+        }
+
+        const renderNWS = async () => {
+            if (!apiRef.current || nwsTimestamps.length === 0) return;
+
+            const currentMapTime = timestamps[currentIndex];
+            if (!currentMapTime) return;
+
+            // NWS alerts are updated less frequently, allow 2 hour tolerance
+            const bestTs = findClosestTimestamp(currentMapTime, nwsTimestamps, 120 * 60 * 1000);
+            if (!bestTs) return;
+
+            let dataToRender = null;
+            if (bestTs === lastNwsTsRef.current && lastNwsDataRef.current) {
+                dataToRender = lastNwsDataRef.current;
+            } else {
+                try {
+                    const data = await apiRef.current.downloadNWS(bestTs);
+                    lastNwsDataRef.current = data;
+                    lastNwsTsRef.current = bestTs;
+                    dataToRender = data;
+                } catch (err) {
+                    console.warn("Failed to load NWS", err);
+                    return;
+                }
+            }
+
+            if (!dataToRender) return;
+
+            // Clear existing or create new
+            if (nwsLayerRef.current) {
+                nwsLayerRef.current.clearLayers();
+            } else {
+                nwsLayerRef.current = L.layerGroup().addTo(map);
+            }
+
+            // Severity color mapping
+            const severityColors: Record<string, { bg: string; border: string; dot: string }> = {
+                'Extreme': { bg: '#7c2d12', border: '#ea580c', dot: '#f97316' },
+                'Severe': { bg: '#7f1d1d', border: '#dc2626', dot: '#ef4444' },
+                'Moderate': { bg: '#78350f', border: '#d97706', dot: '#f59e0b' },
+                'Minor': { bg: '#1e3a5f', border: '#3b82f6', dot: '#60a5fa' },
+                'Unknown': { bg: '#374151', border: '#6b7280', dot: '#9ca3af' },
+            };
+
+            // NWS Alert Icon
+            const ALERT_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`;
+
+            // Event-based color mapping (NWS Standardish)
+            const getEventColors = (event: string, severity: string) => {
+                const e = event.toLowerCase();
+                if (e.includes('tornado')) return { bg: '#450a0a', border: '#ef4444', dot: '#ff0000' }; // Bright Red
+                if (e.includes('thunderstorm')) return { bg: '#451a03', border: '#f97316', dot: '#ffa500' }; // Orange
+                if (e.includes('winter') || e.includes('snow') || e.includes('blizzard')) return { bg: '#172554', border: '#3b82f6', dot: '#0000ff' }; // Blue
+                if (e.includes('flash flood')) return { bg: '#450a0a', border: '#dc2626', dot: '#8b0000' }; // Maroon
+                if (e.includes('flood')) return { bg: '#064e3b', border: '#10b981', dot: '#00ff00' }; // Lime
+                if (e.includes('marine')) return { bg: '#3f2b10', border: '#eab308', dot: '#ffd700' }; // Gold
+
+                // Fallback to severity
+                return severityColors[severity] || severityColors['Unknown'];
+            };
+
+            try {
+                const features = dataToRender.data?.features || [];
+
+                for (const feature of features) {
+                    const props = feature.properties;
+                    if (!props) continue;
+
+                    let coords: L.LatLngExpression | null = null;
+
+                    if (feature.geometry && feature.geometry.type === 'Point') {
+                        const point = feature.geometry as GeoJSON.Point;
+                        coords = [point.coordinates[1], point.coordinates[0]];
+                    } else if (feature.geometry && feature.geometry.type === 'Polygon') {
+                        const polygon = feature.geometry as GeoJSON.Polygon;
+                        const ring = polygon.coordinates[0];
+                        if (ring.length > 0) {
+                            let sumLat = 0, sumLon = 0;
+                            ring.forEach(pt => { sumLon += pt[0]; sumLat += pt[1]; });
+                            coords = [sumLat / ring.length, sumLon / ring.length];
+                        }
+                    } else {
+                        // Infer from geocodes (SAME or UGC)
+                        const geocodes = [...(props.geocode?.UGC || []), ...(props.geocode?.SAME || [])];
+                        if (geocodes.length > 0) {
+                            // Try first available geocode
+                            const resolved = await ZoneResolver.resolve(geocodes[0]);
+                            if (resolved) coords = resolved;
+                        }
+                    }
+
+                    if (!coords) continue;
+
+                    const severity = props.severity || 'Unknown';
+                    const colors = getEventColors(props.event, severity);
+
+                    const iconHtml = `
+                        <div style="position:relative;display:flex;align-items:center;justify-content:center;">
+                            <div style="position:absolute;width:28px;height:28px;border-radius:50%;background:${colors.dot};opacity:0.3;animation:pulse-glow 2s infinite;"></div>
+                            <div style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;background:${colors.bg};border:2px solid ${colors.border};border-radius:50%;color:white;">
+                                ${ALERT_ICON}
+                            </div>
+                        </div>
+                    `;
+
+                    const customIcon = L.divIcon({
+                        className: 'nws-alert-marker',
+                        html: iconHtml,
+                        iconSize: [28, 28],
+                        iconAnchor: [14, 14]
+                    });
+
+                    const marker = L.marker(coords, { icon: customIcon });
+
+                    // Format times
+                    const formatTime = (iso: string) => {
+                        try {
+                            return new Date(iso).toLocaleString('en-US', {
+                                month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short'
+                            });
+                        } catch { return iso; }
+                    };
+
+                    const popup = `
+                        <div class="nws-popup-content">
+                            <div class="nws-popup-header" style="background:linear-gradient(135deg, ${colors.bg}, transparent);border-left:3px solid ${colors.border};">
+                                <span class="nws-event-type" style="color:${colors.border};">${props.event}</span>
+                                <span class="nws-severity-badge" style="background:${colors.border};">${severity}</span>
+                            </div>
+                            <div class="nws-popup-body">
+                                <div class="nws-sender">${props.senderName}</div>
+                                <div class="nws-headline">${props.headline}</div>
+                                <div class="nws-times">
+                                    <div><strong>Effective:</strong> ${formatTime(props.effective)}</div>
+                                    <div><strong>Expires:</strong> ${formatTime(props.expires)}</div>
+                                </div>
+                                <div class="nws-areas"><strong>Areas:</strong> ${props.areaDesc}</div>
+                            </div>
+                        </div>
+                    `;
+
+                    marker.bindPopup(popup, {
+                        closeButton: true,
+                        className: 'nws-popup',
+                        maxWidth: 350,
+                        minWidth: 280
+                    });
+                    marker.addTo(nwsLayerRef.current!);
+                }
+                console.log(`Rendered NWS Alerts: Total=${features.length}`);
+            } catch (e) { console.warn("Error rendering NWS", e); }
+        };
+
+        renderNWS();
+    }, [showNWSAlerts, currentIndex, timestamps, nwsTimestamps]);
 
     // Load Data Logic
     const loadData = useCallback(async (index: number) => {
@@ -1099,6 +1284,8 @@ export default function LeafletMap() {
                                 onToggleSpcWind={() => setShowSpcWind(!showSpcWind)}
                                 showMetar={showMetar}
                                 onToggleMetar={() => setShowMetar(!showMetar)}
+                                showNWSAlerts={showNWSAlerts}
+                                onToggleNWSAlerts={() => setShowNWSAlerts(!showNWSAlerts)}
                             />
                         )}
 

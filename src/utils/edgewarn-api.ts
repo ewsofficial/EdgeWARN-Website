@@ -3,7 +3,7 @@
  * Provides methods to interact with the EdgeWARN Features API
  */
 
-import { Cell, StormCellList, MetarData } from '@/types';
+import { Cell, StormCellList, MetarData, NWSData } from '@/types';
 
 export class EdgeWARNAPI {
     private baseUrl: string;
@@ -158,6 +158,49 @@ export class EdgeWARNAPI {
      */
     async downloadMetar(timestamp: string): Promise<MetarData> {
         const response = await fetch(`${this.baseUrl}/data/download?type=metar&timestamp=${encodeURIComponent(timestamp)}`, {
+            headers: { 'Accept': 'application/json' },
+            cache: 'no-store'
+        });
+
+        if (!response.ok) {
+            throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+        }
+
+        return await response.json();
+    }
+
+    /**
+     * Fetch available NWS alert timestamps
+     * @returns Array of timestamps
+     */
+    async fetchNWSTimestamps(): Promise<string[]> {
+        const response = await fetch(`${this.baseUrl}/data/fetch?type=nws`, {
+            headers: { 'Accept': 'application/json' },
+            cache: 'no-store'
+        });
+
+        if (!response.ok) {
+            throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        if (data.timestamp) {
+            if (Array.isArray(data.timestamp)) {
+                return data.timestamp;
+            } else if (typeof data.timestamp === 'string') {
+                return [data.timestamp];
+            }
+        }
+        return [];
+    }
+
+    /**
+     * Download NWS alert data for a specific timestamp
+     * @param timestamp - Timestamp in YYYYMMDD-HHMMSS format
+     * @returns NWS data
+     */
+    async downloadNWS(timestamp: string): Promise<NWSData> {
+        const response = await fetch(`${this.baseUrl}/data/download?type=nws&timestamp=${encodeURIComponent(timestamp)}`, {
             headers: { 'Accept': 'application/json' },
             cache: 'no-store'
         });
