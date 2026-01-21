@@ -56,3 +56,22 @@ export interface SPCOutlookFeature {
         ISSUE: string;      // Issue time
     };
 }
+
+export interface MetarEntry {
+    observation_time: string;
+    station: string;
+    coordinates: [number, number];
+    wind: {
+        direction: string;
+        speed: string;
+        gust: string | null;
+    };
+    temperature: string;
+    dewpoint: string;
+}
+
+export interface MetarData {
+    type: "metar";
+    timestamp: string;
+    data: MetarEntry[];
+}

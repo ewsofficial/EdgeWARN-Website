@@ -23,7 +23,10 @@ import {
     PRODUCT_TO_COLORMAP_TYPE,
     CELL_POLYGON_STYLE,
     FORECAST_CONE_STYLE,
+    UNCERTAINTY_CONE_STYLE,
+    TRACK_LINE_STYLE,
     SPC_OUTLOOK_COLORS,
+    SPC_PROB_COLORS,
     SPC_LAYER_STYLE,
 } from './constants';
 import { fetchSPCDay1Outlook } from '@/utils/spc-api';
@@ -62,12 +65,26 @@ export default function LeafletMap() {
     const overlayLayersRef = useRef<Map<string, L.ImageOverlay>>(new Map());
     const contourLayerRef = useRef<L.Rectangle | null>(null);
     const boundsLayerRef = useRef<L.Rectangle | null>(null);
+    const [currentZoom, setCurrentZoom] = useState(4);
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
 
     const spcLayerRef = useRef<L.GeoJSON | null>(null);
+    const spcTornadoLayerRef = useRef<L.GeoJSON | null>(null);
+    const spcHailLayerRef = useRef<L.GeoJSON | null>(null);
+    const spcWindLayerRef = useRef<L.GeoJSON | null>(null);
+    const metarLayerRef = useRef<L.LayerGroup | null>(null);
+    const lastMetarTsRef = useRef<string | null>(null);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const lastMetarDataRef = useRef<any>(null);
 
     // Local UI state
     const [isPlaying, setIsPlaying] = useState(false);
     const [showSpcOutlook, setShowSpcOutlook] = useState(false);
+    const [showSpcTornado, setShowSpcTornado] = useState(false);
+    const [showSpcHail, setShowSpcHail] = useState(false);
+    const [showSpcWind, setShowSpcWind] = useState(false);
+    const [showMetar, setShowMetar] = useState(false);
+    const [metarTimestamps, setMetarTimestamps] = useState<string[]>([]);
     const [currentCells, setCurrentCells] = useState<Cell[]>([]);
     const [activePanel, setActivePanel] = useState<'map' | 'connection' | 'list' | 'settings' | null>(null);
     const [selectedCellInfo, setSelectedCellInfo] = useState<string | null>(null);
@@ -105,6 +122,13 @@ export default function LeafletMap() {
                 attribution: '&copy; terrestris &copy; OpenStreetMap',
             }).addTo(map);
 
+            map.on('zoomend', () => {
+                setCurrentZoom(map.getZoom());
+            });
+            map.on('moveend', () => {
+                setRefreshTrigger(prev => prev + 1);
+            });
+
             mapInstanceRef.current = map;
             setMapInstance(map);
 
@@ -120,12 +144,12 @@ export default function LeafletMap() {
 
         // Cleanup
         return () => {
-             clearTimeout(timer);
-             if (mapInstanceRef.current) {
-                 mapInstanceRef.current.remove();
-                 mapInstanceRef.current = null;
-                 setMapInstance(null);
-             }
+            clearTimeout(timer);
+            if (mapInstanceRef.current) {
+                mapInstanceRef.current.remove();
+                mapInstanceRef.current = null;
+                setMapInstance(null);
+            }
         };
     }, []);
 
@@ -152,7 +176,7 @@ export default function LeafletMap() {
 
                 try {
                     const data = await fetchSPCDay1Outlook('categorical');
-                    
+
                     spcLayerRef.current = L.geoJSON(data as any, {
                         style: (feature) => {
                             const label = feature?.properties?.LABEL;
@@ -164,15 +188,15 @@ export default function LeafletMap() {
                             };
                         },
                         onEachFeature: (feature, layer) => {
-                             if (feature.properties) {
-                                  let popupContent = `<div class="p-2">
+                            if (feature.properties) {
+                                let popupContent = `<div class="p-2">
                                     <h3 class="font-bold border-b mb-1">SPC Day 1 Outlook</h3>
                                     <p><strong>Threat:</strong> ${feature.properties.LABEL2 || feature.properties.LABEL}</p>
                                     <p><strong>Issued:</strong> ${feature.properties.ISSUE}</p>
                                     <p><strong>Expires:</strong> ${feature.properties.EXPIRE}</p>
                                   </div>`;
-                                  layer.bindPopup(popupContent);
-                             }
+                                layer.bindPopup(popupContent);
+                            }
                         }
                     }).addTo(map);
                     spcLayerRef.current.bringToBack(); // Keep it below storm cells/warnings
@@ -190,6 +214,254 @@ export default function LeafletMap() {
         loadSpcLayer();
     }, [showSpcOutlook]);
 
+    // Helper for probabilistic layers
+    const loadProbLayer = useCallback(async (
+        type: 'tornado' | 'hail' | 'wind',
+        show: boolean,
+        layerRef: React.MutableRefObject<L.GeoJSON | null>,
+        labelPrefix: string
+    ) => {
+        const map = mapInstanceRef.current;
+        if (!map) return;
+
+        if (show) {
+            if (layerRef.current) return;
+
+            try {
+                const data = await fetchSPCDay1Outlook(type);
+                layerRef.current = L.geoJSON(data as any, {
+                    style: (feature) => {
+                        // Map labels like "2", "5", "10", "SIGN" to colors
+                        const label = feature?.properties?.LABEL;
+                        const dn = feature?.properties?.DN;
+
+                        // Use label or fallback to DN if needed? Usually LABEL matches constants keys.
+                        let color = '#808080';
+                        if (label && SPC_PROB_COLORS[label]) {
+                            color = SPC_PROB_COLORS[label];
+                        } else if (dn && SPC_PROB_COLORS[String(dn)]) {
+                            color = SPC_PROB_COLORS[String(dn)];
+                        }
+
+                        // Special handling for significant (hatched) if available as separate feature or property?
+                        // SPC GeoJSON usually separates hatched as a separate layer or properties?
+                        // The fetched GeoJSON usually contains standard probability contours.
+                        // Significant severe is separate usually (e.g. day1otlk_torn_sig.lyr.geojson usually exists on mapservices but we use consolidated?)
+                        // Our current URL fetches `day1otlk_torn.lyr.geojson`. 
+                        // Let's assume standard coloring first.
+
+                        return {
+                            ...SPC_LAYER_STYLE,
+                            color: color,
+                            fillColor: color
+                        };
+                    },
+                    onEachFeature: (feature, layer) => {
+                        if (feature.properties) {
+                            const threat = feature.properties.LABEL2 || feature.properties.LABEL;
+                            let popupContent = `<div class="p-2">
+                                <h3 class="font-bold border-b mb-1">SPC Day 1 ${labelPrefix} Outlook</h3>
+                                <p><strong>Probability:</strong> ${threat}%</p>
+                                <p><strong>Issued:</strong> ${feature.properties.ISSUE}</p>
+                                <p><strong>Expires:</strong> ${feature.properties.EXPIRE}</p>
+                              </div>`;
+                            layer.bindPopup(popupContent);
+                        }
+                    }
+                }).addTo(map);
+                layerRef.current.bringToBack();
+            } catch (err) {
+                console.error(`Failed to load SPC ${type} layer`, err);
+            }
+        } else {
+            if (layerRef.current) {
+                map.removeLayer(layerRef.current);
+                layerRef.current = null;
+            }
+        }
+    }, []);
+
+    // Effect for Tornado
+    useEffect(() => { loadProbLayer('tornado', showSpcTornado, spcTornadoLayerRef, 'Tornado'); }, [showSpcTornado, loadProbLayer]);
+    // Effect for Hail
+    useEffect(() => { loadProbLayer('hail', showSpcHail, spcHailLayerRef, 'Hail'); }, [showSpcHail, loadProbLayer]);
+    // Effect for Wind
+    useEffect(() => { loadProbLayer('wind', showSpcWind, spcWindLayerRef, 'Wind'); }, [showSpcWind, loadProbLayer]);
+
+    // Effect for METAR
+    useEffect(() => {
+        if (showMetar && metarTimestamps.length === 0 && apiRef.current) {
+            apiRef.current.fetchMetarTimestamps().then(ts => setMetarTimestamps(ts.sort())).catch(e => console.error("METAR TS error", e));
+        }
+    }, [showMetar, metarTimestamps.length]);
+
+    useEffect(() => {
+        const map = mapInstanceRef.current;
+        if (!map) return;
+
+        if (!showMetar) {
+            if (metarLayerRef.current) {
+                map.removeLayer(metarLayerRef.current);
+                metarLayerRef.current = null;
+                lastMetarTsRef.current = null;
+            }
+            return;
+        }
+
+        const renderMetar = async () => {
+            if (!apiRef.current || metarTimestamps.length === 0) return;
+
+            const currentMapTime = timestamps[currentIndex];
+            if (!currentMapTime) return;
+
+            // METARs are typically hourly, so allow a larger tolerance (e.g. 1.5 hours)
+            const bestTs = findClosestTimestamp(currentMapTime, metarTimestamps, 90 * 60 * 1000);
+
+            // Re-render if timestamp changed OR zoom level changed significantly (crossing thresholds)
+            // But we actually just render on every zoom change for simplicity if the logic is cheap enough,
+            // or strictly check if we crossed a threshold.
+            // For now, let's keep it simple: if ts matched last one AND zoom level didn't cross a threshold, skip.
+            // But 'currentZoom' is reactive.
+            // Actually, we need to track what zoom we rendered with.
+
+            // Let's rely on checking if we are forcing an update.
+            // If ts is same, we usually return. But now we must check if zoom necessitated a change.
+            // To do this cleanly, let's fetch data only if ts changed, but re-render markers if zoom changed.
+            // This requires storing the data in a ref or state.
+
+            if (!bestTs) return;
+
+            // If we have data cached for this TS, use it. Otherwise fetch.
+            // For simplicity in this "fix", let's just allow re-fetching or use a simple data cache.
+            // Better: use a ref to store the last fetched data.
+
+            let dataToRender = null;
+            if (bestTs === lastMetarTsRef.current && lastMetarDataRef.current) {
+                // Same TS, have data. Check if we need to re-render due to zoom.
+                // If we strictly returned before, we skipped re-render.
+                // We need to bypass the return if zoom changed.
+                // But wait, if we are here, we are in the effect that runs on [currentZoom].
+                // So we SHOULD re-render.
+                dataToRender = lastMetarDataRef.current;
+            } else {
+                // New TS, fetch.
+                try {
+                    const data = await apiRef.current.downloadMetar(bestTs);
+                    lastMetarDataRef.current = data;
+                    lastMetarTsRef.current = bestTs;
+                    dataToRender = data;
+                } catch (err) {
+                    console.warn("Failed to load METAR", err);
+                    return;
+                }
+            }
+
+            if (!dataToRender) return;
+
+            // Clear existing or create new
+            if (metarLayerRef.current) {
+                metarLayerRef.current.clearLayers();
+            } else {
+                metarLayerRef.current = L.layerGroup().addTo(map);
+            }
+
+
+            lastMetarTsRef.current = bestTs;
+
+            // Simple hash function for deterministic filtering
+            const simpleHash = (str: string) => {
+                let hash = 0;
+                for (let i = 0; i < str.length; i++) {
+                    const char = str.charCodeAt(i);
+                    hash = ((hash << 5) - hash) + char;
+                    hash = hash & hash; // Convert to 32bit integer
+                }
+                return Math.abs(hash);
+            };
+
+            try {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const entries = (dataToRender as any).data || [];
+                let visibleCount = 0;
+
+                entries.forEach((entry: any) => {
+                    if (!entry.coordinates || entry.coordinates.length !== 2) return;
+
+                    // Viewport Culling: Only render if inside current map bounds
+                    // Need to check if available
+                    if (map.getBounds && !map.getBounds().contains(entry.coordinates)) return;
+
+                    // Sparse rendering logic
+                    // If dataset is small, show all
+                    let show = true;
+                    if (entries.length > 50) {
+                        const hash = simpleHash(entry.station);
+                        // Ensure subsets are consistent:
+                        // Zoom < 6: Mod 8 (12.5%)
+                        // Zoom 6-8: Mod 4 (25%) -> subset of Mod 2
+                        // Zoom 8-10: Mod 2 (50%)
+                        // Zoom 10+: All
+                        if (currentZoom < 6) {
+                            if (hash % 8 !== 0) show = false;
+                        } else if (currentZoom < 8) {
+                            if (hash % 4 !== 0) show = false;
+                        } else if (currentZoom < 10) {
+                            if (hash % 2 !== 0) show = false;
+                        }
+                    }
+
+                    if (!show) return;
+                    visibleCount++;
+
+                    // Coordinates in data are [lat, lon]
+                    const marker = L.circleMarker(entry.coordinates, {
+                        radius: 5,
+                        fillColor: '#06b6d4', // cyan-500
+                        color: '#ffffff',
+                        weight: 1,
+                        opacity: 1,
+                        fillOpacity: 0.9
+                    });
+
+                    let windStr = "N/A";
+                    if (entry.wind) {
+                        const gustStr = entry.wind.gust ? `G${entry.wind.gust}` : '';
+                        windStr = `${entry.wind.direction}° @ ${entry.wind.speed}kt ${gustStr}`;
+                    }
+
+                    // Format temperature and dewpoint (M -> -)
+                    const formatTemp = (t: string | number | null | undefined) => {
+                        if (t === null || t === undefined) return "N/A";
+                        return String(t).replace('M', '-');
+                    };
+                    const tempStr = formatTemp(entry.temperature);
+                    const dewStr = formatTemp(entry.dewpoint);
+
+                    const popup = `
+                        <div class="p-2 font-sans text-gray-900">
+                            <h3 class="font-bold border-b border-gray-200 mb-1 pb-1">${entry.station}</h3>
+                            <div class="text-sm space-y-0.5">
+                                <p><strong>Time:</strong> ${entry.observation_time}</p>
+                                <p><strong>Temp:</strong> ${tempStr}°C <span class="text-gray-400">|</span> <strong>Dew:</strong> ${dewStr}°C</p>
+                                <p><strong>Wind:</strong> ${windStr}</p>
+                            </div>
+                        </div>
+                     `;
+                    marker.bindPopup(popup, {
+                        closeButton: false,
+                        className: 'metar-popup'
+                    });
+                    marker.addTo(metarLayerRef.current!);
+                });
+                console.log(`Rendered METAR: Zoom=${currentZoom}, Total=${entries.length}, Visible=${visibleCount}`);
+            } catch (e) { console.warn("Error rendering METAR", e); }
+
+
+        };
+
+        renderMetar();
+    }, [showMetar, currentIndex, timestamps, metarTimestamps, currentZoom, refreshTrigger]);
+
     // Load Data Logic
     const loadData = useCallback(async (index: number) => {
         if (!timestamps[index] || !apiRef.current) return;
@@ -200,27 +472,27 @@ export default function LeafletMap() {
 
         // 1. Load Storm Cells (same as before)
         try {
-             // Removing old layer
-             if (currentLayerRef.current) {
-                 map.removeLayer(currentLayerRef.current);
-                 currentLayerRef.current = null;
-             }
+            // Removing old layer
+            if (currentLayerRef.current) {
+                map.removeLayer(currentLayerRef.current);
+                currentLayerRef.current = null;
+            }
 
-             const data = await apiRef.current.downloadStormcellList(ts);
-             const layerGroup = L.featureGroup();
+            const data = await apiRef.current.downloadStormcellList(ts);
+            const layerGroup = L.featureGroup();
 
-             let features: Cell[] = [];
-             if ('content' in data && data.content && data.content.features) features = data.content.features;
-             else if ('features' in data && data.features) features = data.features;
-             else if (Array.isArray(data)) features = data;
+            let features: Cell[] = [];
+            if ('content' in data && data.content && data.content.features) features = data.content.features;
+            else if ('features' in data && data.features) features = data.features;
+            else if (Array.isArray(data)) features = data;
 
-             // Only include cells that have valid geometry (bbox) to match what is drawn on map
-             const visibleFeatures = features.filter((cell: Cell) =>
+            // Only include cells that have valid geometry (bbox) to match what is drawn on map
+            const visibleFeatures = features.filter((cell: Cell) =>
                 cell.bbox && Array.isArray(cell.bbox) && cell.bbox.length > 0
-             );
-             setCurrentCells(visibleFeatures);
+            );
+            setCurrentCells(visibleFeatures);
 
-             const polyStyle = {
+            const polyStyle = {
                 color: "#f87171", // red-400
                 weight: 2,
                 opacity: 1,
@@ -228,80 +500,121 @@ export default function LeafletMap() {
             };
 
             features.forEach((cell: Cell) => {
-                 if (cell.bbox && Array.isArray(cell.bbox) && cell.bbox.length > 0) {
-                      const coords: L.LatLngExpression[] = cell.bbox.map((p: number[]) => {
-                           const val1 = p[0];
-                           const val2 = p[1];
-                           let lat, lon;
-                           if (Math.abs(val1) > 90) {
-                                lon = val1; lat = val2;
-                           } else {
-                                lat = val1; lon = val2;
-                           }
-                           if (lon > 180) lon -= 360;
-                           return [lat, lon] as [number, number];
-                      });
+                if (cell.bbox && Array.isArray(cell.bbox) && cell.bbox.length > 0) {
+                    const coords: L.LatLngExpression[] = cell.bbox.map((p: number[]) => {
+                        const val1 = p[0];
+                        const val2 = p[1];
+                        let lat, lon;
+                        if (Math.abs(val1) > 90) {
+                            lon = val1; lat = val2;
+                        } else {
+                            lat = val1; lon = val2;
+                        }
+                        if (lon > 180) lon -= 360;
+                        return [lat, lon] as [number, number];
+                    });
 
-                      const polygon = L.polygon(coords, polyStyle);
+                    const polygon = L.polygon(coords, polyStyle);
 
-                       // Helper to get modules from either root or properties
-                       // Use bracket notation for Record types or explicit cast if needed.
-                       // Since properties is Record<string, unknown>, we cast appropriately or use bracket notation.
-                       const modules = cell.modules || (cell.properties?.['modules'] as Record<string, unknown> | undefined);
+                    // Helper to get modules from either root or properties
+                    // Use bracket notation for Record types or explicit cast if needed.
+                    // Since properties is Record<string, unknown>, we cast appropriately or use bracket notation.
+                    const modules = cell.modules || (cell.properties?.['modules'] as Record<string, unknown> | undefined);
 
-                       // Debugging StormCast Data
-                       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                       if (modules && ((modules as any)["StormCast"] || (modules as any)["stormcast"])) {
-                            // console.log(`Cell ${cell.id} has StormCast module`, modules["StormCast"] || modules["stormcast"]);
-                       }
+                    // Debugging StormCast Data
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    if (modules && ((modules as any)["StormCast"] || (modules as any)["stormcast"])) {
+                        // console.log(`Cell ${cell.id} has StormCast module`, modules["StormCast"] || modules["stormcast"]);
+                    }
 
-                       if (cell.properties) {
-                            polygon.on('click', () => {
-                                 const props = { ...cell.properties, id: cell.id, modules };
-                                 setSelectedCellInfo(JSON.stringify(props, null, 2));
-                            });
+                    if (cell.properties) {
+                        polygon.on('click', () => {
+                            const props = { ...cell.properties, id: cell.id, modules };
+                            setSelectedCellInfo(JSON.stringify(props, null, 2));
+                        });
 
-                            // Render StormCast Forecast Cones
-                            if (modules) {
+                        // Render StormCast Forecast Cones with Uncertainty
+                        if (modules) {
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            const stormCastData = ((modules as any)["StormCast"] || (modules as any)["stormcast"]) as any;
+                            if (stormCastData && stormCastData.forecast_cones && Array.isArray(stormCastData.forecast_cones)) {
                                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                const stormCastData = ((modules as any)["StormCast"] || (modules as any)["stormcast"]) as any;
-                                if (stormCastData && stormCastData.forecast_cones && Array.isArray(stormCastData.forecast_cones)) {
-                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                    stormCastData.forecast_cones.forEach((cone: any) => {
-                                        // Check if valid
-                                        const validCenter = cone.center && Array.isArray(cone.center) && cone.center.length === 2;
-                                        const validRadius = typeof cone.radius === 'number';
+                                stormCastData.forecast_cones.forEach((cone: any) => {
+                                    // Check if valid
+                                    const validCenter = cone.center && Array.isArray(cone.center) && cone.center.length === 2;
+                                    const validRadius = typeof cone.radius === 'number';
 
-                                        if (validCenter && validRadius) {
-                                            // Normalize longitude if needed (0-360 -> -180-180)
-                                            const cLat = cone.center[0];
-                                            let cLon = cone.center[1];
-                                            if (cLon > 180) cLon -= 360;
+                                    if (validCenter && validRadius) {
+                                        // Normalize longitude if needed (0-360 -> -180-180)
+                                        const cLat = cone.center[0];
+                                        let cLon = cone.center[1];
+                                        if (cLon > 180) cLon -= 360;
 
-                                            const circle = L.circle([cLat, cLon], {
-                                                color: "#f97316", // orange-500
-                                                weight: 2,
-                                                fillOpacity: 0.1,
-                                                dashArray: '4, 4',
-                                                interactive: false
+                                        // Radius is already in meters
+                                        const radiusMeters = cone.radius;
+
+                                        // Plot uncertainty cone first (behind the main cone)
+                                        // Uncertainty can be provided as uncertainty_radius, uncertainty, or as radius_max
+                                        const uncertainty = cone.uncertainty_radius || cone.uncertainty || cone.radius_max;
+                                        if (typeof uncertainty === 'number' && uncertainty > cone.radius) {
+                                            const uncertaintyRadiusMeters = uncertainty;
+                                            const uncertaintyCone = L.circle([cLat, cLon], {
+                                                radius: uncertaintyRadiusMeters,
+                                                ...UNCERTAINTY_CONE_STYLE
                                             });
-                                            circle.addTo(layerGroup);
-                                        } else {
-                                            // console.warn("Invalid cone data:", cone);
+                                            uncertaintyCone.addTo(layerGroup);
                                         }
-                                    });
+
+                                        // Main forecast cone (Storm Size / Center)
+                                        const forecastCone = L.circle([cLat, cLon], {
+                                            radius: radiusMeters,
+                                            ...FORECAST_CONE_STYLE
+                                        });
+                                        forecastCone.addTo(layerGroup);
+                                    } else {
+                                        // console.warn("Invalid cone data:", cone);
+                                    }
+                                });
+
+                                // Draw Track Line (connecting centers)
+                                // Start with current storm center
+                                const trackPoints: L.LatLngExpression[] = [];
+
+                                try {
+                                    const cellBounds = L.latLngBounds(coords);
+                                    const cellCenter = cellBounds.getCenter();
+                                    trackPoints.push([cellCenter.lat, cellCenter.lng]);
+                                } catch (e) {
+                                    // Fallback if bounds calculation fails
+                                }
+
+                                // Add forecast centers
+                                stormCastData.forecast_cones.forEach((cone: any) => {
+                                    if (cone.center && Array.isArray(cone.center) && cone.center.length === 2) {
+                                        const cLat = cone.center[0];
+                                        let cLon = cone.center[1];
+                                        if (cLon > 180) cLon -= 360;
+                                        trackPoints.push([cLat, cLon]);
+                                    }
+                                });
+
+                                if (trackPoints.length > 1) {
+                                    const trackLine = L.polyline(trackPoints, TRACK_LINE_STYLE);
+                                    trackLine.addTo(layerGroup);
+                                    trackLine.bringToFront(); // Ensure track is on top of cones
                                 }
                             }
-                       }
-                       polygon.addTo(layerGroup);
-                 }
+                        }
+                    }
+                    polygon.addTo(layerGroup);
+                }
             });
 
             layerGroup.addTo(map);
             currentLayerRef.current = layerGroup;
 
         } catch (err) {
-             console.warn(`Error loading cell data for ${ts}:`, err);
+            console.warn(`Error loading cell data for ${ts}:`, err);
         }
 
         // 2. Render Overlays (Multiple)
@@ -346,54 +659,54 @@ export default function LeafletMap() {
 
                 // Let's just fetch and replace for now to ensure sync.
                 try {
-                     const res = await fetch(directUrl);
-                     if (res.ok) {
-                         const blob = await res.blob();
-                         const objectUrl = URL.createObjectURL(blob);
+                    const res = await fetch(directUrl);
+                    if (res.ok) {
+                        const blob = await res.blob();
+                        const objectUrl = URL.createObjectURL(blob);
 
-                         // Check if existing
-                         if (mapOverlays.has(prod)) {
-                             const old = mapOverlays.get(prod)!;
-                             map.removeLayer(old);
-                             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                             if ((old as any)._blobUrl) URL.revokeObjectURL((old as any)._blobUrl);
-                         }
+                        // Check if existing
+                        if (mapOverlays.has(prod)) {
+                            const old = mapOverlays.get(prod)!;
+                            map.removeLayer(old);
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            if ((old as any)._blobUrl) URL.revokeObjectURL((old as any)._blobUrl);
+                        }
 
-                         const opacity = activeLayers[prod].opacity;
-                         const overlay = L.imageOverlay(objectUrl, bounds, { opacity }).addTo(map);
-                         overlay.bringToBack();
-                         mapOverlays.set(prod, overlay);
-                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                         (overlay as any)._blobUrl = objectUrl;
+                        const opacity = activeLayers[prod].opacity;
+                        const overlay = L.imageOverlay(objectUrl, bounds, { opacity }).addTo(map);
+                        overlay.bringToBack();
+                        mapOverlays.set(prod, overlay);
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        (overlay as any)._blobUrl = objectUrl;
 
-                         if (crisp) {
-                             const el = overlay.getElement();
-                             if (el) el.classList.add('pixelated-overlay');
-                         }
-                     }
+                        if (crisp) {
+                            const el = overlay.getElement();
+                            if (el) el.classList.add('pixelated-overlay');
+                        }
+                    }
                 } catch (err) {
-                     console.warn(`Failed to load overlay for ${prod}`, err);
+                    console.warn(`Failed to load overlay for ${prod}`, err);
                 }
             }
         }
 
         if (showContour) {
             // ... contour logic ...
-             if (contourLayerRef.current) {
+            if (contourLayerRef.current) {
                 map.removeLayer(contourLayerRef.current);
                 contourLayerRef.current = null;
             }
-             const baseSouth = 20; // Re-declare or move out
-             const baseNorth = 55;
-             const baseWest = -130;
-             const baseEast = -60;
-             const bounds: L.LatLngBoundsExpression = [[baseSouth, baseWest], [baseNorth, baseEast]];
+            const baseSouth = 20; // Re-declare or move out
+            const baseNorth = 55;
+            const baseWest = -130;
+            const baseEast = -60;
+            const bounds: L.LatLngBoundsExpression = [[baseSouth, baseWest], [baseNorth, baseEast]];
 
-             contourLayerRef.current = L.rectangle(bounds, {
-                 color: "#f59e0b",
-                 weight: 2,
-                 fill: false
-             }).addTo(map);
+            contourLayerRef.current = L.rectangle(bounds, {
+                color: "#f59e0b",
+                weight: 2,
+                fill: false
+            }).addTo(map);
         }
 
     }, [timestamps, activeLayers, productTimestamps, crisp, showContour, apiRef, ewmrsRef]); // Update deps
@@ -403,7 +716,7 @@ export default function LeafletMap() {
     const timestampsRef = useRef(timestamps);
     const productTimestampsRef = useRef(productTimestamps);
     const activeLayersRef = useRef(activeLayers);
-    
+
     useEffect(() => { timestampsRef.current = timestamps; }, [timestamps]);
     useEffect(() => { productTimestampsRef.current = productTimestamps; }, [productTimestamps]);
     useEffect(() => { activeLayersRef.current = activeLayers; }, [activeLayers]);
@@ -423,7 +736,7 @@ export default function LeafletMap() {
                     const sortedPrev = [...timestampsRef.current].sort();
 
                     const isNew = sortedLatest.length !== sortedPrev.length ||
-                                  sortedLatest[sortedLatest.length - 1] !== sortedPrev[sortedPrev.length - 1];
+                        sortedLatest[sortedLatest.length - 1] !== sortedPrev[sortedPrev.length - 1];
 
                     if (isNew) {
                         console.log('New EdgeWARN timestamps detected:', sortedLatest[sortedLatest.length - 1]);
@@ -451,7 +764,7 @@ export default function LeafletMap() {
                             const sortedPrev = [...currentCache].sort();
 
                             const isNew = sortedLatest.length !== sortedPrev.length ||
-                                          sortedLatest[sortedLatest.length - 1] !== sortedPrev[sortedPrev.length - 1];
+                                sortedLatest[sortedLatest.length - 1] !== sortedPrev[sortedPrev.length - 1];
 
                             if (isNew) {
                                 console.log(`New EWMRS timestamps detected for ${prod}:`, sortedLatest[sortedLatest.length - 1]);
@@ -462,7 +775,7 @@ export default function LeafletMap() {
                                 hasGlobalUpdate = true;
                             }
                         }
-                    } catch(err) {
+                    } catch (err) {
                         console.warn(`Auto-refresh EWMRS failed for ${prod}`, err);
                     }
                 }
@@ -485,29 +798,29 @@ export default function LeafletMap() {
 
     // Debounce/Listen to slide change
     useEffect(() => {
-         const timer = setTimeout(() => {
-              if (isConnected && timestamps.length > 0) {
-                   loadData(currentIndex);
-              }
-         }, 200);
-         return () => clearTimeout(timer);
+        const timer = setTimeout(() => {
+            if (isConnected && timestamps.length > 0) {
+                loadData(currentIndex);
+            }
+        }, 200);
+        return () => clearTimeout(timer);
     }, [currentIndex, isConnected, loadData, timestamps.length]);
 
 
     // Watch for newly visible layers and fetch their timestamps if missing
     useEffect(() => {
         const fetchMissingTs = async () => {
-             if (!ewmrsRef.current) return;
+            if (!ewmrsRef.current) return;
 
-             const visibleProds = Object.keys(activeLayers).filter(k => activeLayers[k].visible);
-             for (const prod of visibleProds) {
-                 if (!productTimestamps[prod]) {
-                      try {
-                          const prodTs = await ewmrsRef.current.getProductTimestamps(prod);
-                          setProductTimestamps(prev => ({ ...prev, [prod]: prodTs.sort() }));
-                      } catch { console.warn("Failed fetch prod ts for", prod); }
-                 }
-             }
+            const visibleProds = Object.keys(activeLayers).filter(k => activeLayers[k].visible);
+            for (const prod of visibleProds) {
+                if (!productTimestamps[prod]) {
+                    try {
+                        const prodTs = await ewmrsRef.current.getProductTimestamps(prod);
+                        setProductTimestamps(prev => ({ ...prev, [prod]: prodTs.sort() }));
+                    } catch { console.warn("Failed fetch prod ts for", prod); }
+                }
+            }
         };
         fetchMissingTs();
     }, [activeLayers, productTimestamps]);
@@ -564,20 +877,20 @@ export default function LeafletMap() {
                 const val2 = p[1];
                 let lat, lon;
                 if (Math.abs(val1) > 90) {
-                     lon = val1; lat = val2;
+                    lon = val1; lat = val2;
                 } else {
-                     lat = val1; lon = val2;
+                    lat = val1; lon = val2;
                 }
                 if (lon > 180) lon -= 360;
                 return [lat, lon] as [number, number];
-           });
+            });
 
-           const bounds = L.latLngBounds(coords);
-           mapInstanceRef.current.flyToBounds(bounds, {
-               padding: [50, 50],
-               maxZoom: 12,
-               duration: 1.5
-           });
+            const bounds = L.latLngBounds(coords);
+            mapInstanceRef.current.flyToBounds(bounds, {
+                padding: [50, 50],
+                maxZoom: 12,
+                duration: 1.5
+            });
         } catch (e) {
             console.warn("Failed to zoom to cell", e);
         }
@@ -633,19 +946,19 @@ export default function LeafletMap() {
 
     return (
         <div className="flex bg-gray-900 text-gray-100 h-screen font-sans overflow-hidden">
-             {/* Connection Modal - must be at root level */}
-             <ConnectionModal
-                 key={`modal-${apiUrl}-${ewmrsUrl}`}
-                 isOpen={!isConnected}
-                 loading={loading}
-                 error={error}
-                 initialApiUrl={apiUrl}
-                 initialEwmrsUrl={ewmrsUrl}
-                 onConnect={handleConnect}
-             />
+            {/* Connection Modal - must be at root level */}
+            <ConnectionModal
+                key={`modal-${apiUrl}-${ewmrsUrl}`}
+                isOpen={!isConnected}
+                loading={loading}
+                error={error}
+                initialApiUrl={apiUrl}
+                initialEwmrsUrl={ewmrsUrl}
+                onConnect={handleConnect}
+            />
 
-             {/* Styles for pixelated */}
-             <style jsx global>{`
+            {/* Styles for pixelated */}
+            <style jsx global>{`
                 .pixelated-overlay {
                     image-rendering: pixelated;
                     image-rendering: -moz-crisp-edges;
@@ -653,23 +966,23 @@ export default function LeafletMap() {
                 }
              `}</style>
 
-             {/* Combined Left Panel Group - Fixed width to align Rail (3.5rem) + Sidebar (20rem) with Footer */}
-             <div className="flex flex-col flex-shrink-0 z-30 shadow-xl h-full w-[23.5rem] bg-gray-800">
+            {/* Combined Left Panel Group - Fixed width to align Rail (3.5rem) + Sidebar (20rem) with Footer */}
+            <div className="flex flex-col flex-shrink-0 z-30 shadow-xl h-full w-[23.5rem] bg-gray-800">
 
-                 {/* Upper Section: Rail + Sidebar Content */}
-                 <div className="flex flex-1 min-h-0 overflow-hidden">
+                {/* Upper Section: Rail + Sidebar Content */}
+                <div className="flex flex-1 min-h-0 overflow-hidden">
 
-                     {/* Settings Rail */}
-                     <div className="w-14 flex-shrink-0 flex flex-col bg-gray-950 border-r border-gray-800 z-20">
-                         {/* Logo Container - Aligned Height with Sidebar Header */}
-                         <div className="flex-shrink-0 h-14 flex items-center justify-center border-b border-gray-800">
-                             <Link href="/" className="w-8 h-8 flex items-center justify-center opacity-80 hover:opacity-100 transition-opacity cursor-pointer">
-                                 <img src="/assets/EdgeWARN.png" alt="EdgeWARN" className="w-full h-full object-contain drop-shadow-md rounded-xl" />
-                             </Link>
-                         </div>
+                    {/* Settings Rail */}
+                    <div className="w-14 flex-shrink-0 flex flex-col bg-gray-950 border-r border-gray-800 z-20">
+                        {/* Logo Container - Aligned Height with Sidebar Header */}
+                        <div className="flex-shrink-0 h-14 flex items-center justify-center border-b border-gray-800">
+                            <Link href="/" className="w-8 h-8 flex items-center justify-center opacity-80 hover:opacity-100 transition-opacity cursor-pointer">
+                                <img src="/assets/EdgeWARN.png" alt="EdgeWARN" className="w-full h-full object-contain drop-shadow-md rounded-xl" />
+                            </Link>
+                        </div>
 
-                         {/* Rail Content */}
-                         <div className="flex-1 flex flex-col items-center py-4 gap-4">
+                        {/* Rail Content */}
+                        <div className="flex-1 flex flex-col items-center py-4 gap-4">
                             <button
                                 onClick={() => setActivePanel(activePanel === 'map' ? null : 'map')}
                                 className={`p-3 rounded-xl transition-all ${activePanel === 'map' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-blue-400 hover:bg-gray-800'}`}
@@ -701,53 +1014,61 @@ export default function LeafletMap() {
                             >
                                 <Settings size={22} />
                             </button>
-                         </div>
-                     </div>
+                        </div>
+                    </div>
 
-                     {/* Sidebar Content Area */}
-                     <div className="w-80 flex-shrink-0 flex flex-col border-r border-gray-700 bg-gray-800 overflow-y-auto">
+                    {/* Sidebar Content Area */}
+                    <div className="w-80 flex-shrink-0 flex flex-col border-r border-gray-700 bg-gray-800 overflow-y-auto">
 
-                          {/* 1. MAP SETTINGS PANEL */}
-                          {activePanel === 'map' && (
-                              <MapSettingsPanel
-                                  products={products}
-                                  activeLayers={activeLayers}
-                                  onLayerToggle={toggleLayer}
-                                  onOpacityChange={changeOpacity}
-                                  showSpcOutlook={showSpcOutlook}
-                                  onToggleSpcOutlook={() => setShowSpcOutlook(!showSpcOutlook)}
-                              />
-                          )}
+                        {/* 1. MAP SETTINGS PANEL */}
+                        {activePanel === 'map' && (
+                            <MapSettingsPanel
+                                products={products}
+                                activeLayers={activeLayers}
+                                onLayerToggle={toggleLayer}
+                                onOpacityChange={changeOpacity}
+                                showSpcOutlook={showSpcOutlook}
+                                onToggleSpcOutlook={() => setShowSpcOutlook(!showSpcOutlook)}
+                                showSpcTornado={showSpcTornado}
+                                onToggleSpcTornado={() => setShowSpcTornado(!showSpcTornado)}
+                                showSpcHail={showSpcHail}
+                                onToggleSpcHail={() => setShowSpcHail(!showSpcHail)}
+                                showSpcWind={showSpcWind}
+                                onToggleSpcWind={() => setShowSpcWind(!showSpcWind)}
+                                showMetar={showMetar}
+                                onToggleMetar={() => setShowMetar(!showMetar)}
+                            />
+                        )}
 
-                          {/* 2. CONNECTION PANEL */}
-                          {(activePanel === 'connection') && (
-                              <ConnectionSettingsPanel
-                                  key={`panel-${apiUrl}-${ewmrsUrl}`}
-                                  currentApiUrl={apiUrl}
-                                  currentEwmrsUrl={ewmrsUrl}
-                                  isConnected={isConnected}
-                                  onConnect={handleConnect}
-                                  loading={loading}
-                                  error={error}
-                              />
-                          )}
+                        {/* 2. CONNECTION PANEL */}
+                        {(activePanel === 'connection') && (
+                            <ConnectionSettingsPanel
+                                key={`panel-${apiUrl}-${ewmrsUrl}`}
+                                currentApiUrl={apiUrl}
+                                currentEwmrsUrl={ewmrsUrl}
+                                isConnected={isConnected}
+                                onConnect={handleConnect}
+                                loading={loading}
+                                error={error}
+                            />
+                        )}
 
-                          {/* 3. CELL LIST PANEL */}
-                          {(activePanel === 'list') && (
-                              <CellListPanel
-                                  cells={currentCells}
-                                  onCellClick={handleCellClick}
-                              />
-                          )}
+                        {/* 3. CELL LIST PANEL */}
+                        {(activePanel === 'list') && (
+                            <CellListPanel
+                                cells={currentCells}
+                                onCellClick={handleCellClick}
+                            />
+                        )}
 
-                          {/* 4. SETTINGS Placeholder */}
-                          {(activePanel === 'settings') && (
-                              <div className="p-4 text-gray-400 italic text-center text-sm">
-                                  Not implemented yet
-                              </div>
-                          )}
+                        {/* 4. SETTINGS Placeholder */}
+                        {(activePanel === 'settings') && (
+                            <div className="p-4 text-gray-400 italic text-center text-sm">
+                                Not implemented yet
+                            </div>
+                        )}
 
-                          {/* Default/Empty State if nothing selected? Or maybe 'connection' should be default?
+                        {/* Default/Empty State if nothing selected? Or maybe 'connection' should be default?
                               If activePanel is null, sidebar is empty?
                               Let's leave it empty if null for cleaner look, or maybe show Logo?
                               Actually, let's make 'connection' or 'map' default?
@@ -755,63 +1076,63 @@ export default function LeafletMap() {
                               But we have a fixed width sidebar space. If it's empty it looks weird.
                               Let's show "Select a tool from the rail" message if null.
                            */}
-                           {activePanel === null && (
-                               <div className="flex flex-col items-center justify-center h-full text-gray-500 text-sm italic p-6 text-center">
-                                   <div className="text-gray-600 mb-2">EdgeWARN</div>
-                                   Select a tool from the left rail
-                               </div>
-                           )}
-                     </div>
-                 </div>
-
-                 {/* Playback Control Footer - Spans Full Width (Rail + Sidebar) */}
-                 {isConnected && (
-                      <div className="flex-shrink-0 bg-gray-900 border-t border-gray-700 border-r p-4 z-40">
-                           <SlidebarControl
-                               currentIndex={currentIndex}
-                               totalFrames={timestamps.length}
-                               onIndexChange={setCurrentIndex}
-                               isPlaying={isPlaying}
-                               onTogglePlay={() => setIsPlaying(!isPlaying)}
-                           />
-
-                           {error && <div className="text-xs text-red-500 italic text-center mt-2">{error}</div>}
-                      </div>
-                 )}
-             </div>
-
-             {/* Map Area */}
-             <div className="flex-1 relative">
-                  <div ref={mapContainerRef} className="h-full w-full z-0" />
-
-                  {/* Top Bar for Time */}
-                  {isConnected && (
-                       <div className={`absolute top-4 left-1/2 transform -translate-x-1/2 z-[400] backdrop-blur-md border rounded-full px-6 py-2 shadow-xl flex items-center gap-4 pointer-events-none select-none transition-all duration-500 ${isFlashing ? 'bg-green-900/90 border-green-500/80 scale-105' : 'bg-gray-900/90 border-gray-700/50'}`}>
-                           <div className={`text-2xl font-mono font-bold drop-shadow-sm tracking-wider transition-colors duration-300 ${isFlashing ? 'text-green-300' : 'text-blue-400'}`}>{time || '--:--'}</div>
-                           <div className={`h-8 w-px transition-colors duration-300 ${isFlashing ? 'bg-green-600' : 'bg-gray-700'}`}></div>
-                           <div className={`text-sm font-medium tracking-wide uppercase transition-colors duration-300 ${isFlashing ? 'text-green-200' : 'text-gray-400'}`}>{date || 'YYYY-MM-DD'}</div>
-                       </div>
-                  )}
-
-                  {selectedCellInfo && (
-                       <div className="absolute top-4 right-4 z-[1000] bg-gray-800/90 backdrop-blur border border-gray-600 rounded p-4 max-w-xs shadow-lg text-white">
-                            <div className="flex justify-between items-center mb-2">
-                                <h3 className="font-bold text-lg text-blue-300">Selected Cell</h3>
-                                <button onClick={() => setSelectedCellInfo(null)} className="text-gray-400 hover:text-white">✕</button>
+                        {activePanel === null && (
+                            <div className="flex flex-col items-center justify-center h-full text-gray-500 text-sm italic p-6 text-center">
+                                <div className="text-gray-600 mb-2">EdgeWARN</div>
+                                Select a tool from the left rail
                             </div>
-                            <pre className="text-xs overflow-auto max-h-60 text-gray-300 whitespace-pre-wrap">{selectedCellInfo}</pre>
-                       </div>
-                  )}
+                        )}
+                    </div>
+                </div>
 
-                  {/* Modular Toolbar */}
-                  <MapToolbar>
-                      <DistanceTool map={mapInstance} />
-                      <CircleTool map={mapInstance} />
-                  </MapToolbar>
+                {/* Playback Control Footer - Spans Full Width (Rail + Sidebar) */}
+                {isConnected && (
+                    <div className="flex-shrink-0 bg-gray-900 border-t border-gray-700 border-r p-4 z-40">
+                        <SlidebarControl
+                            currentIndex={currentIndex}
+                            totalFrames={timestamps.length}
+                            onIndexChange={setCurrentIndex}
+                            isPlaying={isPlaying}
+                            onTogglePlay={() => setIsPlaying(!isPlaying)}
+                        />
 
-                  {/* Colormap Legend */}
-                  {isConnected && <ColormapLegend colormap={activeColormap} />}
-             </div>
+                        {error && <div className="text-xs text-red-500 italic text-center mt-2">{error}</div>}
+                    </div>
+                )}
+            </div>
+
+            {/* Map Area */}
+            <div className="flex-1 relative">
+                <div ref={mapContainerRef} className="h-full w-full z-0" />
+
+                {/* Top Bar for Time */}
+                {isConnected && (
+                    <div className={`absolute top-4 left-1/2 transform -translate-x-1/2 z-[400] backdrop-blur-md border rounded-full px-6 py-2 shadow-xl flex items-center gap-4 pointer-events-none select-none transition-all duration-500 ${isFlashing ? 'bg-green-900/90 border-green-500/80 scale-105' : 'bg-gray-900/90 border-gray-700/50'}`}>
+                        <div className={`text-2xl font-mono font-bold drop-shadow-sm tracking-wider transition-colors duration-300 ${isFlashing ? 'text-green-300' : 'text-blue-400'}`}>{time || '--:--'}</div>
+                        <div className={`h-8 w-px transition-colors duration-300 ${isFlashing ? 'bg-green-600' : 'bg-gray-700'}`}></div>
+                        <div className={`text-sm font-medium tracking-wide uppercase transition-colors duration-300 ${isFlashing ? 'text-green-200' : 'text-gray-400'}`}>{date || 'YYYY-MM-DD'}</div>
+                    </div>
+                )}
+
+                {selectedCellInfo && (
+                    <div className="absolute top-4 right-4 z-[1000] bg-gray-800/90 backdrop-blur border border-gray-600 rounded p-4 max-w-xs shadow-lg text-white">
+                        <div className="flex justify-between items-center mb-2">
+                            <h3 className="font-bold text-lg text-blue-300">Selected Cell</h3>
+                            <button onClick={() => setSelectedCellInfo(null)} className="text-gray-400 hover:text-white">✕</button>
+                        </div>
+                        <pre className="text-xs overflow-auto max-h-60 text-gray-300 whitespace-pre-wrap">{selectedCellInfo}</pre>
+                    </div>
+                )}
+
+                {/* Modular Toolbar */}
+                <MapToolbar>
+                    <DistanceTool map={mapInstance} />
+                    <CircleTool map={mapInstance} />
+                </MapToolbar>
+
+                {/* Colormap Legend */}
+                {isConnected && <ColormapLegend colormap={activeColormap} />}
+            </div>
         </div>
     );
 }
