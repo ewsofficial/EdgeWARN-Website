@@ -6,19 +6,21 @@ import 'leaflet/dist/leaflet.css';
 import Link from 'next/link';
 import { Map as MapIcon, Wifi, List, Settings } from 'lucide-react';
 import { Cell, NWSAlertFeature } from '@/types';
-import { ZoneResolver } from '@/utils/nws-geoloader';
 import { formatTimeLabel, findClosestTimestamp } from '@/utils/timestamp';
 import SlidebarControl from '../UI/SlidebarControl';
 import { MapToolbar } from '../UI/MapToolbar';
 import { DistanceTool } from '../UI/DistanceTool';
 import { CircleTool } from '../UI/CircleTool';
-import { LatLonDisplay } from '../UI/LatLonDisplay';
+import { TopBar } from './TopBar';
 import ConnectionModal from '../UI/ConnectionModal';
 import MapSettingsPanel from '../UI/MapSettingsPanel';
 import ConnectionSettingsPanel from '../UI/ConnectionSettingsPanel';
 import CellListPanel from '../UI/CellListPanel';
 import ColormapLegend from '../UI/ColormapLegend';
 import { useMapConnection } from './hooks';
+import { useSPCLayer } from './hooks/useSPCLayer';
+import { useMETARLayer } from './hooks/useMETARLayer';
+import { useNWSLayer } from './hooks/useNWSLayer';
 import {
     DEFAULT_BOUNDS,
     DEFAULT_MAP_CONFIG,
@@ -27,12 +29,7 @@ import {
     FORECAST_CONE_STYLE,
     UNCERTAINTY_CONE_STYLE,
     TRACK_LINE_STYLE,
-    SPC_OUTLOOK_COLORS,
-    SPC_PROB_COLORS,
-    SPC_LAYER_STYLE,
 } from './constants';
-import { fetchSPCDay1Outlook } from '@/utils/spc-api';
-import { SPCOutlookFeature } from '@/types';
 
 export default function LeafletMap() {
     // Use custom hook for connection state and handlers
@@ -70,19 +67,6 @@ export default function LeafletMap() {
     const [currentZoom, setCurrentZoom] = useState(4);
     const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-    const spcLayerRef = useRef<L.GeoJSON | null>(null);
-    const spcTornadoLayerRef = useRef<L.GeoJSON | null>(null);
-    const spcHailLayerRef = useRef<L.GeoJSON | null>(null);
-    const spcWindLayerRef = useRef<L.GeoJSON | null>(null);
-    const metarLayerRef = useRef<L.LayerGroup | null>(null);
-    const lastMetarTsRef = useRef<string | null>(null);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const lastMetarDataRef = useRef<any>(null);
-    const nwsLayerRef = useRef<L.LayerGroup | null>(null);
-    const lastNwsTsRef = useRef<string | null>(null);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const lastNwsDataRef = useRef<any>(null);
-
     // Local UI state
     const [isPlaying, setIsPlaying] = useState(false);
     const [showSpcOutlook, setShowSpcOutlook] = useState(false);
@@ -91,11 +75,34 @@ export default function LeafletMap() {
     const [showSpcWind, setShowSpcWind] = useState(false);
     const [showMetar, setShowMetar] = useState(false);
     const [showNWSAlerts, setShowNWSAlerts] = useState(false);
-    const [metarTimestamps, setMetarTimestamps] = useState<string[]>([]);
-    const [nwsTimestamps, setNwsTimestamps] = useState<string[]>([]);
     const [currentCells, setCurrentCells] = useState<Cell[]>([]);
     const [activePanel, setActivePanel] = useState<'map' | 'connection' | 'list' | 'settings' | null>(null);
     const [selectedCellInfo, setSelectedCellInfo] = useState<string | null>(null);
+
+    // --- Hooks ---
+    useSPCLayer({
+        map: mapInstance,
+        showOutlook: showSpcOutlook,
+        showTornado: showSpcTornado,
+        showHail: showSpcHail,
+        showWind: showSpcWind
+    });
+
+    useMETARLayer({
+        map: mapInstance,
+        apiRef,
+        showMetar,
+        currentTimestamp: timestamps[currentIndex] || null,
+        currentZoom,
+        refreshTrigger
+    });
+
+    useNWSLayer({
+        map: mapInstance,
+        apiRef,
+        showNWSAlerts,
+        currentTimestamp: timestamps[currentIndex] || null
+    });
 
     // Toggles (hardcoded)
     const showBounds = false;
@@ -174,630 +181,10 @@ export default function LeafletMap() {
     }, [showBounds]);
 
     // Handle SPC Outlook Layer
-    useEffect(() => {
-        const map = mapInstanceRef.current;
-        if (!map) return;
-
-        const loadSpcLayer = async () => {
-            if (showSpcOutlook) {
-                if (spcLayerRef.current) return; // Already loaded
-
-                try {
-                    const data = await fetchSPCDay1Outlook('categorical');
-
-                    spcLayerRef.current = L.geoJSON(data as any, {
-                        style: (feature) => {
-                            const label = feature?.properties?.LABEL;
-                            const color = SPC_OUTLOOK_COLORS[label] || '#808080';
-                            return {
-                                ...SPC_LAYER_STYLE,
-                                color: color,
-                                fillColor: color
-                            };
-                        },
-                        onEachFeature: (feature, layer) => {
-                            if (feature.properties) {
-                                const label = feature.properties.LABEL2 || feature.properties.LABEL;
-                                const issue = feature.properties.ISSUE;
-                                const expire = feature.properties.EXPIRE;
-
-                                // Determine threat label color (optional, or just use white text)
-                                // Use mapped color for badge background if desired
-                                const threatColor = SPC_OUTLOOK_COLORS[feature.properties.LABEL] || '#808080';
-
-                                const popupContent = `
-                                    <div class="spc-popup-content">
-                                        <div class="spc-popup-header">
-                                            <span class="spc-title">SPC Day 1 Outlook</span>
-                                            <span class="spc-threat-badge" style="background:${threatColor}">${label}</span>
-                                        </div>
-                                        <div class="spc-popup-body">
-                                            <div class="spc-times">
-                                                <div><strong>Issued:</strong> ${issue}</div>
-                                                <div><strong>Expires:</strong> ${expire}</div>
-                                            </div>
-                                        </div>
-                                    </div>`;
-
-                                layer.bindPopup(popupContent, {
-                                    className: 'spc-popup', // Matches CSS class we added
-                                    closeButton: false,
-                                    maxWidth: 300
-                                });
-                            }
-                        }
-                    }).addTo(map);
-                    spcLayerRef.current.bringToBack(); // Keep it below storm cells/warnings
-                } catch (err) {
-                    console.error("Failed to load SPC layer", err);
-                }
-            } else {
-                if (spcLayerRef.current) {
-                    map.removeLayer(spcLayerRef.current);
-                    spcLayerRef.current = null;
-                }
-            }
-        };
-
-        loadSpcLayer();
-    }, [showSpcOutlook]);
-
-    // Helper for probabilistic layers
-    const loadProbLayer = useCallback(async (
-        type: 'tornado' | 'hail' | 'wind',
-        show: boolean,
-        layerRef: React.MutableRefObject<L.GeoJSON | null>,
-        labelPrefix: string
-    ) => {
-        const map = mapInstanceRef.current;
-        if (!map) return;
-
-        if (show) {
-            if (layerRef.current) return;
-
-            try {
-                const data = await fetchSPCDay1Outlook(type);
-                layerRef.current = L.geoJSON(data as any, {
-                    style: (feature) => {
-                        // Map labels like "2", "5", "10", "SIGN" to colors
-                        const label = feature?.properties?.LABEL;
-                        const dn = feature?.properties?.DN;
-
-                        // Use label or fallback to DN if needed? Usually LABEL matches constants keys.
-                        let color = '#808080';
-                        if (label && SPC_PROB_COLORS[label]) {
-                            color = SPC_PROB_COLORS[label];
-                        } else if (dn && SPC_PROB_COLORS[String(dn)]) {
-                            color = SPC_PROB_COLORS[String(dn)];
-                        }
-
-                        // Special handling for significant (hatched) if available as separate feature or property?
-                        // SPC GeoJSON usually separates hatched as a separate layer or properties?
-                        // The fetched GeoJSON usually contains standard probability contours.
-                        // Significant severe is separate usually (e.g. day1otlk_torn_sig.lyr.geojson usually exists on mapservices but we use consolidated?)
-                        // Our current URL fetches `day1otlk_torn.lyr.geojson`. 
-                        // Let's assume standard coloring first.
-
-                        return {
-                            ...SPC_LAYER_STYLE,
-                            color: color,
-                            fillColor: color
-                        };
-                    },
-                    onEachFeature: (feature, layer) => {
-                        if (feature.properties) {
-                            const threat = feature.properties.LABEL2 || feature.properties.LABEL;
-                            const issue = feature.properties.ISSUE;
-                            const expire = feature.properties.EXPIRE;
-
-                            // Determine color for this probability
-                            let badgeColor = '#808080';
-                            const label = feature?.properties?.LABEL;
-                            const dn = feature?.properties?.DN;
-                            if (label && SPC_PROB_COLORS[label]) {
-                                badgeColor = SPC_PROB_COLORS[label];
-                            } else if (dn && SPC_PROB_COLORS[String(dn)]) {
-                                badgeColor = SPC_PROB_COLORS[String(dn)];
-                            }
-
-                            const popupContent = `
-                                <div class="spc-popup-content">
-                                    <div class="spc-popup-header">
-                                        <span class="spc-title">SPC Day 1 ${labelPrefix}</span>
-                                        <span class="spc-threat-badge" style="background:${badgeColor}">${threat}%</span>
-                                    </div>
-                                    <div class="spc-popup-body">
-                                        <div class="spc-times">
-                                            <div><strong>Issued:</strong> ${issue}</div>
-                                            <div><strong>Expires:</strong> ${expire}</div>
-                                        </div>
-                                    </div>
-                                </div>`;
-
-                            layer.bindPopup(popupContent, {
-                                className: 'spc-popup',
-                                closeButton: false,
-                                maxWidth: 300
-                            });
-                        }
-                    }
-                }).addTo(map);
-                layerRef.current.bringToBack();
-            } catch (err) {
-                console.error(`Failed to load SPC ${type} layer`, err);
-            }
-        } else {
-            if (layerRef.current) {
-                map.removeLayer(layerRef.current);
-                layerRef.current = null;
-            }
-        }
-    }, []);
-
-    // Effect for Tornado
-    useEffect(() => { loadProbLayer('tornado', showSpcTornado, spcTornadoLayerRef, 'Tornado'); }, [showSpcTornado, loadProbLayer]);
-    // Effect for Hail
-    useEffect(() => { loadProbLayer('hail', showSpcHail, spcHailLayerRef, 'Hail'); }, [showSpcHail, loadProbLayer]);
-    // Effect for Wind
-    useEffect(() => { loadProbLayer('wind', showSpcWind, spcWindLayerRef, 'Wind'); }, [showSpcWind, loadProbLayer]);
 
     // Effect for METAR
-    useEffect(() => {
-        if (showMetar && metarTimestamps.length === 0 && apiRef.current) {
-            apiRef.current.fetchMetarTimestamps().then(ts => setMetarTimestamps(ts.sort())).catch(e => console.error("METAR TS error", e));
-        }
-    }, [showMetar, metarTimestamps.length]);
-
-    // Effect for NWS Alerts - Fetch timestamps
-    useEffect(() => {
-        console.log(`[NWS Debug] Timestamp fetch effect - showNWSAlerts=${showNWSAlerts}, nwsTimestamps.length=${nwsTimestamps.length}, apiRef.current=${!!apiRef.current}`);
-        if (showNWSAlerts && nwsTimestamps.length === 0 && apiRef.current) {
-            console.log("[NWS Debug] Fetching NWS timestamps...");
-            apiRef.current.fetchNWSTimestamps()
-                .then(ts => {
-                    console.log("[NWS Debug] Received timestamps:", ts);
-                    setNwsTimestamps(ts.sort());
-                })
-                .catch(e => console.error("NWS TS error", e));
-        }
-    }, [showNWSAlerts, nwsTimestamps.length]);
-
-    useEffect(() => {
-        const map = mapInstanceRef.current;
-        if (!map) return;
-
-        if (!showMetar) {
-            if (metarLayerRef.current) {
-                map.removeLayer(metarLayerRef.current);
-                metarLayerRef.current = null;
-                lastMetarTsRef.current = null;
-            }
-            return;
-        }
-
-        const renderMetar = async () => {
-            if (!apiRef.current || metarTimestamps.length === 0) return;
-
-            const currentMapTime = timestamps[currentIndex];
-            if (!currentMapTime) return;
-
-            // METARs are typically hourly, so allow a larger tolerance (e.g. 1.5 hours)
-            const bestTs = findClosestTimestamp(currentMapTime, metarTimestamps, 90 * 60 * 1000);
-
-            // Re-render if timestamp changed OR zoom level changed significantly (crossing thresholds)
-            // But we actually just render on every zoom change for simplicity if the logic is cheap enough,
-            // or strictly check if we crossed a threshold.
-            // For now, let's keep it simple: if ts matched last one AND zoom level didn't cross a threshold, skip.
-            // But 'currentZoom' is reactive.
-            // Actually, we need to track what zoom we rendered with.
-
-            // Let's rely on checking if we are forcing an update.
-            // If ts is same, we usually return. But now we must check if zoom necessitated a change.
-            // To do this cleanly, let's fetch data only if ts changed, but re-render markers if zoom changed.
-            // This requires storing the data in a ref or state.
-
-            if (!bestTs) return;
-
-            // If we have data cached for this TS, use it. Otherwise fetch.
-            // For simplicity in this "fix", let's just allow re-fetching or use a simple data cache.
-            // Better: use a ref to store the last fetched data.
-
-            let dataToRender = null;
-            if (bestTs === lastMetarTsRef.current && lastMetarDataRef.current) {
-                // Same TS, have data. Check if we need to re-render due to zoom.
-                // If we strictly returned before, we skipped re-render.
-                // We need to bypass the return if zoom changed.
-                // But wait, if we are here, we are in the effect that runs on [currentZoom].
-                // So we SHOULD re-render.
-                dataToRender = lastMetarDataRef.current;
-            } else {
-                // New TS, fetch.
-                try {
-                    const data = await apiRef.current.downloadMetar(bestTs);
-                    lastMetarDataRef.current = data;
-                    lastMetarTsRef.current = bestTs;
-                    dataToRender = data;
-                } catch (err) {
-                    console.warn("Failed to load METAR", err);
-                    return;
-                }
-            }
-
-            if (!dataToRender) return;
-
-            // Clear existing or create new
-            if (metarLayerRef.current) {
-                metarLayerRef.current.clearLayers();
-            } else {
-                metarLayerRef.current = L.layerGroup().addTo(map);
-            }
-
-
-            lastMetarTsRef.current = bestTs;
-
-            // Simple hash function for deterministic filtering
-            const simpleHash = (str: string) => {
-                let hash = 0;
-                for (let i = 0; i < str.length; i++) {
-                    const char = str.charCodeAt(i);
-                    hash = ((hash << 5) - hash) + char;
-                    hash = hash & hash; // Convert to 32bit integer
-                }
-                return Math.abs(hash);
-            };
-
-            try {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const entries = (dataToRender as any).data || [];
-                let visibleCount = 0;
-
-                entries.forEach((entry: any) => {
-                    if (!entry.coordinates || entry.coordinates.length !== 2) return;
-
-                    // Viewport Culling: Only render if inside current map bounds
-                    // Need to check if available
-                    if (map.getBounds && !map.getBounds().contains(entry.coordinates)) return;
-
-                    // Sparse rendering logic
-                    // If dataset is small, show all
-                    let show = true;
-                    if (entries.length > 50) {
-                        const hash = simpleHash(entry.station);
-                        // Ensure subsets are consistent:
-                        // Zoom < 6: Mod 8 (12.5%)
-                        // Zoom 6-8: Mod 4 (25%) -> subset of Mod 2
-                        // Zoom 8-10: Mod 2 (50%)
-                        // Zoom 10+: All
-                        if (currentZoom < 6) {
-                            if (hash % 8 !== 0) show = false;
-                        } else if (currentZoom < 8) {
-                            if (hash % 4 !== 0) show = false;
-                        } else if (currentZoom < 10) {
-                            if (hash % 2 !== 0) show = false;
-                        }
-                    }
-
-                    if (!show) return;
-                    visibleCount++;
-
-                    // Parse temperature for color coding (Celsius)
-                    // thresholds: <12 blue, 12-15 green, 15-18 yellow, 18-21 orange, >21 red
-                    const parseTempVal = (t: string | number | null | undefined): number | null => {
-                        if (t === null || t === undefined) return null;
-                        let s = String(t);
-                        if (s.startsWith('M')) s = '-' + s.substring(1);
-                        const val = parseFloat(s);
-                        return isNaN(val) ? null : val;
-                    };
-
-                    const dewVal = parseTempVal(entry.dewpoint);
-                    let colorClass = 'dot-blue';
-                    let colorHex = '#3b82f6';
-
-                    if (dewVal !== null) {
-                        if (dewVal >= 21) { colorClass = 'dot-red'; colorHex = '#ef4444'; }
-                        else if (dewVal >= 18) { colorClass = 'dot-orange'; colorHex = '#f97316'; }
-                        else if (dewVal >= 15) { colorClass = 'dot-yellow'; colorHex = '#eab308'; }
-                        else if (dewVal >= 12) { colorClass = 'dot-green'; colorHex = '#22c55e'; }
-                    }
-
-                    // Define SVG strings for icons
-                    const PLANE_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h20"/><path d="M13 2l9 10-9 10"/><path d="M13 2v20"/></svg>`; // Actually this is an arrow, let's use a real plane
-                    const REAL_PLANE_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h20"/><path d="M20 12v-2a2 2 0 0 0-2-2h-3.5L8 2H5l3 6H5l-1 2h12.5"/><path d="M16 16l-1.5 6H12l2-6"/></svg>`; // Rough plane geometry
-                    // Simpler Lucide Plane
-                    const LUCIDE_PLANE = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h20"/><path d="M20 12v-2a2 2 0 0 0-2-2h-3.5L8 2H5l3 6H5l-1 2h1.5"/><path d="M16 16l-2 6h-2.5l1.5-6"/></svg>`;
-
-                    const STATION_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M8 10a4 4 0 0 1 8 0"/><path d="M4 14a8 8 0 0 1 16 0"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/></svg>`; // Antenna-ish
-
-                    const TEMP_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>`;
-                    const DEW_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>`;
-                    const WIND_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block"><path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"/><path d="M9.6 4.6A2 2 0 1 1 11 8H2"/><path d="M12.6 19.4A2 2 0 1 0 14 16H2"/></svg>`;
-
-                    // Determine icon based on station code length (ICAO = 4 usually)
-                    const isAirport = entry.station.length === 4;
-                    const markerIconSvg = isAirport ? LUCIDE_PLANE : STATION_ICON;
-
-                    const iconHtml = `
-                        <div class="metar-glow" style="background-color: ${colorHex}"></div>
-                        <div class="metar-dot ${colorClass}" style="display:flex;align-items:center;justify-content:center;width:20px;height:20px;background:${colorHex};border:1px solid rgba(255,255,255,0.8);">
-                            <div style="color:white; transform: scale(0.8);">${markerIconSvg}</div>
-                        </div>
-                    `;
-
-                    const customIcon = L.divIcon({
-                        className: 'metar-marker',
-                        html: iconHtml,
-                        iconSize: [24, 24],
-                        iconAnchor: [12, 12]
-                    });
-
-                    const marker = L.marker(entry.coordinates, {
-                        icon: customIcon,
-                        title: `${entry.station}: ${entry.temperature}/${entry.dewpoint}`
-                    });
-
-                    let windStr = "N/A";
-                    if (entry.wind) {
-                        const gustStr = entry.wind.gust ? ` G${entry.wind.gust}` : '';
-                        windStr = `${entry.wind.direction}° @ ${entry.wind.speed}kt${gustStr}`;
-                    }
-
-                    // Format temperature and dewpoint (M -> -)
-                    const formatTemp = (t: string | number | null | undefined) => {
-                        if (t === null || t === undefined) return "N/A";
-                        return String(t).replace('M', '-');
-                    };
-                    const tempStr = formatTemp(entry.temperature);
-                    const dewStr = formatTemp(entry.dewpoint);
-
-                    // Modern Glass Popup with Icons
-                    const popup = `
-                        <div class="popup-header">
-                            <span class="popup-station">${entry.station}</span>
-                            <span class="popup-time-badge">${entry.observation_time.substring(11, 16)}Z</span>
-                        </div>
-                        <div class="popup-body">
-                            <div class="metrics-grid">
-                                <div class="popup-metric">
-                                    <span class="metric-label">${TEMP_ICON} Temp</span>
-                                    <div><span class="metric-value">${tempStr}</span><span class="metric-unit">°C</span></div>
-                                </div>
-                                <div class="popup-metric">
-                                    <span class="metric-label">${DEW_ICON} Dewpoint</span>
-                                    <div><span class="metric-value">${dewStr}</span><span class="metric-unit">°C</span></div>
-                                </div>
-                            </div>
-                            <div class="wind-section">
-                                <div class="wind-icon-box">${WIND_ICON}</div>
-                                <div class="wind-info">
-                                    <span class="wind-label">Wind Condition</span>
-                                    <span class="wind-value">${windStr}</span>
-                                </div>
-                            </div>
-                        </div>
-                     `;
-
-                    marker.bindPopup(popup, {
-                        closeButton: false,
-                        className: 'metar-popup',
-                        maxWidth: 300
-                    });
-                    marker.addTo(metarLayerRef.current!);
-                });
-                console.log(`Rendered METAR: Zoom=${currentZoom}, Total=${entries.length}, Visible=${visibleCount}`);
-            } catch (e) { console.warn("Error rendering METAR", e); }
-
-
-        };
-
-        renderMetar();
-    }, [showMetar, currentIndex, timestamps, metarTimestamps, currentZoom, refreshTrigger]);
 
     // Effect for NWS Alerts Rendering
-    useEffect(() => {
-        console.log(`[NWS Debug] Render effect - showNWSAlerts=${showNWSAlerts}, nwsTimestamps.length=${nwsTimestamps.length}`);
-        const map = mapInstanceRef.current;
-        if (!map) {
-            console.log("[NWS Debug] No map instance");
-            return;
-        }
-
-        if (!showNWSAlerts) {
-            if (nwsLayerRef.current) {
-                map.removeLayer(nwsLayerRef.current);
-                nwsLayerRef.current = null;
-                lastNwsTsRef.current = null;
-            }
-            return;
-        }
-
-        const renderNWS = async () => {
-            if (!apiRef.current || nwsTimestamps.length === 0) {
-                console.log(`[NWS Debug] renderNWS early return - apiRef=${!!apiRef.current}, timestamps=${nwsTimestamps.length}`);
-                return;
-            }
-
-            const currentMapTime = timestamps[currentIndex];
-            if (!currentMapTime) return;
-
-            // NWS alerts are updated less frequently, allow 2 hour tolerance
-            const bestTs = findClosestTimestamp(currentMapTime, nwsTimestamps, 120 * 60 * 1000);
-            console.log(`[NWS Debug] currentMapTime=${currentMapTime}, nwsTimestamps=${nwsTimestamps.length}, bestTs=${bestTs}`);
-            if (!bestTs) return;
-
-            let dataToRender = null;
-            if (bestTs === lastNwsTsRef.current && lastNwsDataRef.current) {
-                dataToRender = lastNwsDataRef.current;
-            } else {
-                try {
-                    const data = await apiRef.current.downloadNWS(bestTs);
-                    lastNwsDataRef.current = data;
-                    lastNwsTsRef.current = bestTs;
-                    dataToRender = data;
-                } catch (err) {
-                    console.warn("Failed to load NWS", err);
-                    return;
-                }
-            }
-
-            if (!dataToRender) return;
-
-            // Clear existing or create new
-            if (nwsLayerRef.current) {
-                nwsLayerRef.current.clearLayers();
-            } else {
-                nwsLayerRef.current = L.layerGroup().addTo(map);
-            }
-
-            // Severity color mapping
-            const severityColors: Record<string, { bg: string; border: string; dot: string }> = {
-                'Extreme': { bg: '#7c2d12', border: '#ea580c', dot: '#f97316' },
-                'Severe': { bg: '#7f1d1d', border: '#dc2626', dot: '#ef4444' },
-                'Moderate': { bg: '#78350f', border: '#d97706', dot: '#f59e0b' },
-                'Minor': { bg: '#1e3a5f', border: '#3b82f6', dot: '#60a5fa' },
-                'Unknown': { bg: '#374151', border: '#6b7280', dot: '#9ca3af' },
-            };
-
-            // NWS Alert Icon
-            const ALERT_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`;
-
-            // Event-based color mapping (NWS Standardish)
-            const getEventColors = (event: string, severity: string) => {
-                const e = event.toLowerCase();
-                if (e.includes('tornado')) return { bg: '#450a0a', border: '#ef4444', dot: '#ff0000' }; // Bright Red
-                if (e.includes('thunderstorm')) return { bg: '#451a03', border: '#f97316', dot: '#ffa500' }; // Orange
-                if (e.includes('winter') || e.includes('snow') || e.includes('blizzard')) return { bg: '#172554', border: '#3b82f6', dot: '#0000ff' }; // Blue
-                if (e.includes('flash flood')) return { bg: '#450a0a', border: '#dc2626', dot: '#8b0000' }; // Maroon
-                if (e.includes('flood')) return { bg: '#064e3b', border: '#10b981', dot: '#00ff00' }; // Lime
-                if (e.includes('marine')) return { bg: '#3f2b10', border: '#eab308', dot: '#ffd700' }; // Gold
-
-                // Fallback to severity
-                return severityColors[severity] || severityColors['Unknown'];
-            };
-
-            try {
-                const features = dataToRender.data?.features || [];
-                console.log(`[NWS Debug] Features count: ${features.length}`);
-
-                // PHASE 1: Collect ALL unique geocodes from ALL features
-                const allGeocodes = new Set<string>();
-                for (const feature of features) {
-                    const props = feature.properties;
-                    if (!props) continue;
-                    if (!feature.geometry || (feature.geometry.type !== 'Polygon' && feature.geometry.type !== 'MultiPolygon')) {
-                        const geocodes = [...(props.geocode?.UGC || []), ...(props.geocode?.SAME || [])];
-                        geocodes.forEach(code => allGeocodes.add(code));
-                    }
-                }
-
-                console.log(`[NWS Debug] Fetching ${allGeocodes.size} unique geocodes in parallel...`);
-
-                // PHASE 2: Fetch ALL geocodes in ONE parallel batch
-                const geocodeArray = Array.from(allGeocodes);
-                await Promise.all(geocodeArray.map(code => ZoneResolver.resolveGeometry(code)));
-
-                console.log(`[NWS Debug] Geocode fetch complete, rendering...`);
-
-                // PHASE 3: Render all features (geocodes are now cached)
-                for (const feature of features) {
-                    const props = feature.properties;
-                    if (!props) continue;
-
-                    const geometries: (GeoJSON.Polygon | GeoJSON.MultiPolygon)[] = [];
-
-                    if (feature.geometry && (feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon')) {
-                        geometries.push(feature.geometry as GeoJSON.Polygon | GeoJSON.MultiPolygon);
-                    } else {
-                        const geocodes = [...(props.geocode?.UGC || []), ...(props.geocode?.SAME || [])];
-                        for (const code of geocodes) {
-                            const resolved = await ZoneResolver.resolveGeometry(code); // Uses cache
-                            if (resolved?.geometry) {
-                                geometries.push(resolved.geometry);
-                            }
-                        }
-                    }
-
-                    if (geometries.length === 0) continue;
-
-                    const severity = props.severity || 'Unknown';
-                    const colors = getEventColors(props.event, severity);
-
-                    const formatTime = (iso: string) => {
-                        try {
-                            return new Date(iso).toLocaleString('en-US', {
-                                month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short'
-                            });
-                        } catch { return iso; }
-                    };
-
-                    const popup = `
-                        <div class="nws-popup-content">
-                            <div class="nws-popup-header" style="background:linear-gradient(135deg, ${colors.bg}, transparent);border-left:3px solid ${colors.border};">
-                                <span class="nws-event-type" style="color:${colors.border};">${props.event}</span>
-                                <span class="nws-severity-badge" style="background:${colors.border};">${severity}</span>
-                            </div>
-                            <div class="nws-popup-body">
-                                <div class="nws-sender">${props.senderName}</div>
-                                <div class="nws-headline">${props.headline}</div>
-                                <div class="nws-times">
-                                    <div><strong>Effective:</strong> ${formatTime(props.effective)}</div>
-                                    <div><strong>Expires:</strong> ${formatTime(props.expires)}</div>
-                                </div>
-                                <div class="nws-areas"><strong>Areas:</strong> ${props.areaDesc}</div>
-                            </div>
-                        </div>
-                    `;
-
-                    // Combine all polygons into a single MultiPolygon
-                    const allPolygons: number[][][][] = [];
-
-                    for (const geom of geometries) {
-                        if (geom.type === 'Polygon') {
-                            allPolygons.push(geom.coordinates);
-                        } else if (geom.type === 'MultiPolygon') {
-                            allPolygons.push(...geom.coordinates);
-                        }
-                    }
-
-                    if (allPolygons.length === 0) continue;
-
-                    // Create a MultiPolygon that merges all zones
-                    const mergedGeometry: GeoJSON.MultiPolygon = {
-                        type: 'MultiPolygon',
-                        coordinates: allPolygons
-                    };
-
-                    const geoJSONFeature: GeoJSON.Feature = {
-                        type: 'Feature',
-                        geometry: mergedGeometry,
-                        properties: props
-                    };
-
-                    const layer = L.geoJSON(geoJSONFeature, {
-                        style: () => ({
-                            color: colors.border,
-                            fillColor: colors.dot,
-                            weight: 0,  // No stroke - avoid interior lines
-                            opacity: 0,
-                            fillOpacity: 0.4
-                        })
-                    });
-
-                    layer.bindPopup(popup, {
-                        closeButton: true,
-                        className: 'nws-popup',
-                        maxWidth: 350,
-                        minWidth: 280
-                    });
-
-                    layer.addTo(nwsLayerRef.current!);
-                }
-                console.log(`Rendered NWS Alerts: Total=${features.length}`);
-            } catch (e) { console.warn("Error rendering NWS", e); }
-        };
-
-        renderNWS();
-    }, [showNWSAlerts, currentIndex, timestamps, nwsTimestamps]);
 
     // Load Data Logic
     const loadData = useCallback(async (index: number) => {
@@ -1446,17 +833,14 @@ export default function LeafletMap() {
 
                 {/* Top Bar for Time */}
                 {/* Top Bar for Time & Lat/Lon */}
-                {isConnected && (
-                    <div className={`absolute top-4 left-1/2 transform -translate-x-1/2 z-[400] flex flex-col items-center pointer-events-none select-none backdrop-blur-md border rounded-2xl shadow-xl px-8 py-3 transition-all duration-500 gap-1 ${isFlashing ? 'bg-green-900/90 border-green-500/80 scale-105' : 'bg-gray-900/90 border-gray-700/50'}`}>
-                        <div className="flex items-center gap-4">
-                            <div className={`text-3xl font-mono font-bold drop-shadow-sm tracking-wider transition-colors duration-300 ${isFlashing ? 'text-green-300' : 'text-blue-400'}`}>{time || '--:--'}</div>
-                            <div className={`h-8 w-px transition-colors duration-300 ${isFlashing ? 'bg-green-600' : 'bg-gray-700'}`}></div>
-                            <div className={`text-base font-medium tracking-wide uppercase transition-colors duration-300 ${isFlashing ? 'text-green-200' : 'text-gray-400'}`}>{date || 'YYYY-MM-DD'}</div>
-                        </div>
-                        <div className="w-full h-px bg-gray-700/50 my-1"></div>
-                        <LatLonDisplay map={mapInstance} />
-                    </div>
-                )}
+                {/* Top Bar for Time & Lat/Lon */}
+                <TopBar
+                    isConnected={isConnected}
+                    time={time}
+                    date={date}
+                    isFlashing={isFlashing}
+                    map={mapInstance}
+                />
 
                 {selectedCellInfo && (
                     <div className="absolute top-4 right-4 z-[1000] bg-gray-800/90 backdrop-blur border border-gray-600 rounded p-4 max-w-xs shadow-lg text-white">
