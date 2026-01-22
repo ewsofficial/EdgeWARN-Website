@@ -74,4 +74,20 @@ export class EWMRSAPI {
         }
         return await response.json();
     }
+
+    /**
+     * Fetch WPC Surface Analysis GeoJSON
+     * @returns GeoJSON FeatureCollection
+     */
+    async fetchWpcSurfaceAnalysis(): Promise<GeoJSON.FeatureCollection> {
+        const response = await fetch(`${this.baseUrl}/wpc/surface-analysis`, {
+            headers: { 'Accept': 'application/json' },
+            cache: 'no-store'
+        });
+
+        if (!response.ok) {
+            throw new Error(`EWMRS: Server returned ${response.status}: ${response.statusText}`);
+        }
+        return await response.json();
+    }
 }

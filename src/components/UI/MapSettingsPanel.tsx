@@ -18,6 +18,8 @@ interface MapSettingsPanelProps {
     onToggleMetar?: () => void;
     showNWSAlerts?: boolean;
     onToggleNWSAlerts?: () => void;
+    showWpc?: boolean;
+    onToggleWpc?: () => void;
 }
 
 // Maps product names to human-readable display names
@@ -75,6 +77,8 @@ export default function MapSettingsPanel({
     onToggleMetar,
     showNWSAlerts = false,
     onToggleNWSAlerts,
+    showWpc = false,
+    onToggleWpc,
 }: MapSettingsPanelProps) {
     const [openSections, setOpenSections] = useState<Record<string, boolean>>({
         'spc': true,
@@ -205,6 +209,13 @@ export default function MapSettingsPanel({
                                 onToggle={onToggleNWSAlerts}
                                 colorClass="amber"
                                 icon={AlertTriangle}
+                            />
+                            <OverlayItem
+                                label="WPC Surface Analysis"
+                                active={!!showWpc}
+                                onToggle={onToggleWpc}
+                                colorClass="indigo"
+                                icon={Activity}
                             />
                         </div>
                     )}

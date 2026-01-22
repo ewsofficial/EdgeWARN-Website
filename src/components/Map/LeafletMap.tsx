@@ -21,6 +21,7 @@ import { useMapConnection } from './hooks';
 import { useSPCLayer } from './hooks/useSPCLayer';
 import { useMETARLayer } from './hooks/useMETARLayer';
 import { useNWSLayer } from './hooks/useNWSLayer';
+import { useWPCLayer } from './hooks/useWPCLayer';
 import {
     DEFAULT_BOUNDS,
     DEFAULT_MAP_CONFIG,
@@ -75,6 +76,7 @@ export default function LeafletMap() {
     const [showSpcWind, setShowSpcWind] = useState(false);
     const [showMetar, setShowMetar] = useState(false);
     const [showNWSAlerts, setShowNWSAlerts] = useState(false);
+    const [showWpc, setShowWpc] = useState(false);
     const [currentCells, setCurrentCells] = useState<Cell[]>([]);
     const [activePanel, setActivePanel] = useState<'map' | 'connection' | 'list' | 'settings' | null>(null);
     const [selectedCellInfo, setSelectedCellInfo] = useState<string | null>(null);
@@ -102,6 +104,12 @@ export default function LeafletMap() {
         apiRef,
         showNWSAlerts,
         currentTimestamp: timestamps[currentIndex] || null
+    });
+
+    useWPCLayer({
+        map: mapInstance,
+        ewmrsApi: ewmrsRef.current,
+        showWpc
     });
 
     // Toggles (hardcoded)
@@ -763,6 +771,8 @@ export default function LeafletMap() {
                                 onToggleMetar={() => setShowMetar(!showMetar)}
                                 showNWSAlerts={showNWSAlerts}
                                 onToggleNWSAlerts={() => setShowNWSAlerts(!showNWSAlerts)}
+                                showWpc={showWpc}
+                                onToggleWpc={() => setShowWpc(!showWpc)}
                             />
                         )}
 

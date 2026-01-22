@@ -106,3 +106,15 @@ export const SPC_LAYER_STYLE = {
     opacity: 0.8,
     fillOpacity: 0.4,
 };
+
+// WPC Surface Analysis Styles
+export const WPC_STYLE = {
+    HIGH: { color: '#0000FF', weight: 2, radius: 8 },
+    LOW: { color: '#FF0000', weight: 2, radius: 8 },
+    ISOBAR: { color: '#000000', weight: 1, opacity: 0.5 },
+    COLD_FRONT: { color: '#0000FF', weight: 3 },
+    WARM_FRONT: { color: '#FF0000', weight: 3 },
+    OCCLUDED_FRONT: { color: '#800080', weight: 3 },
+    STATIONARY_FRONT: { color: '#FF0000', weight: 3, dashArray: '10, 10' }, // Simplified
+    TROUGH: { color: '#FFA500', weight: 2, dashArray: '5, 5' },
+};
