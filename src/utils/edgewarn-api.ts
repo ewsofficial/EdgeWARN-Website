@@ -184,11 +184,12 @@ export class EdgeWARNAPI {
         }
 
         const data = await response.json();
-        if (data.timestamp) {
-            if (Array.isArray(data.timestamp)) {
-                return data.timestamp;
-            } else if (typeof data.timestamp === 'string') {
-                return [data.timestamp];
+        // API returns { timestamps: [...] } (plural)
+        if (data.timestamps) {
+            if (Array.isArray(data.timestamps)) {
+                return data.timestamps;
+            } else if (typeof data.timestamps === 'string') {
+                return [data.timestamps];
             }
         }
         return [];

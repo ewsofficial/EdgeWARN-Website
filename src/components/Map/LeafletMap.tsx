@@ -12,6 +12,7 @@ import SlidebarControl from '../UI/SlidebarControl';
 import { MapToolbar } from '../UI/MapToolbar';
 import { DistanceTool } from '../UI/DistanceTool';
 import { CircleTool } from '../UI/CircleTool';
+import { LatLonDisplay } from '../UI/LatLonDisplay';
 import ConnectionModal from '../UI/ConnectionModal';
 import MapSettingsPanel from '../UI/MapSettingsPanel';
 import ConnectionSettingsPanel from '../UI/ConnectionSettingsPanel';
@@ -196,13 +197,33 @@ export default function LeafletMap() {
                         },
                         onEachFeature: (feature, layer) => {
                             if (feature.properties) {
-                                let popupContent = `<div class="p-2">
-                                    <h3 class="font-bold border-b mb-1">SPC Day 1 Outlook</h3>
-                                    <p><strong>Threat:</strong> ${feature.properties.LABEL2 || feature.properties.LABEL}</p>
-                                    <p><strong>Issued:</strong> ${feature.properties.ISSUE}</p>
-                                    <p><strong>Expires:</strong> ${feature.properties.EXPIRE}</p>
-                                  </div>`;
-                                layer.bindPopup(popupContent);
+                                const label = feature.properties.LABEL2 || feature.properties.LABEL;
+                                const issue = feature.properties.ISSUE;
+                                const expire = feature.properties.EXPIRE;
+
+                                // Determine threat label color (optional, or just use white text)
+                                // Use mapped color for badge background if desired
+                                const threatColor = SPC_OUTLOOK_COLORS[feature.properties.LABEL] || '#808080';
+
+                                const popupContent = `
+                                    <div class="spc-popup-content">
+                                        <div class="spc-popup-header">
+                                            <span class="spc-title">SPC Day 1 Outlook</span>
+                                            <span class="spc-threat-badge" style="background:${threatColor}">${label}</span>
+                                        </div>
+                                        <div class="spc-popup-body">
+                                            <div class="spc-times">
+                                                <div><strong>Issued:</strong> ${issue}</div>
+                                                <div><strong>Expires:</strong> ${expire}</div>
+                                            </div>
+                                        </div>
+                                    </div>`;
+
+                                layer.bindPopup(popupContent, {
+                                    className: 'spc-popup', // Matches CSS class we added
+                                    closeButton: false,
+                                    maxWidth: 300
+                                });
                             }
                         }
                     }).addTo(map);
@@ -266,13 +287,38 @@ export default function LeafletMap() {
                     onEachFeature: (feature, layer) => {
                         if (feature.properties) {
                             const threat = feature.properties.LABEL2 || feature.properties.LABEL;
-                            let popupContent = `<div class="p-2">
-                                <h3 class="font-bold border-b mb-1">SPC Day 1 ${labelPrefix} Outlook</h3>
-                                <p><strong>Probability:</strong> ${threat}%</p>
-                                <p><strong>Issued:</strong> ${feature.properties.ISSUE}</p>
-                                <p><strong>Expires:</strong> ${feature.properties.EXPIRE}</p>
-                              </div>`;
-                            layer.bindPopup(popupContent);
+                            const issue = feature.properties.ISSUE;
+                            const expire = feature.properties.EXPIRE;
+
+                            // Determine color for this probability
+                            let badgeColor = '#808080';
+                            const label = feature?.properties?.LABEL;
+                            const dn = feature?.properties?.DN;
+                            if (label && SPC_PROB_COLORS[label]) {
+                                badgeColor = SPC_PROB_COLORS[label];
+                            } else if (dn && SPC_PROB_COLORS[String(dn)]) {
+                                badgeColor = SPC_PROB_COLORS[String(dn)];
+                            }
+
+                            const popupContent = `
+                                <div class="spc-popup-content">
+                                    <div class="spc-popup-header">
+                                        <span class="spc-title">SPC Day 1 ${labelPrefix}</span>
+                                        <span class="spc-threat-badge" style="background:${badgeColor}">${threat}%</span>
+                                    </div>
+                                    <div class="spc-popup-body">
+                                        <div class="spc-times">
+                                            <div><strong>Issued:</strong> ${issue}</div>
+                                            <div><strong>Expires:</strong> ${expire}</div>
+                                        </div>
+                                    </div>
+                                </div>`;
+
+                            layer.bindPopup(popupContent, {
+                                className: 'spc-popup',
+                                closeButton: false,
+                                maxWidth: 300
+                            });
                         }
                     }
                 }).addTo(map);
@@ -304,8 +350,15 @@ export default function LeafletMap() {
 
     // Effect for NWS Alerts - Fetch timestamps
     useEffect(() => {
+        console.log(`[NWS Debug] Timestamp fetch effect - showNWSAlerts=${showNWSAlerts}, nwsTimestamps.length=${nwsTimestamps.length}, apiRef.current=${!!apiRef.current}`);
         if (showNWSAlerts && nwsTimestamps.length === 0 && apiRef.current) {
-            apiRef.current.fetchNWSTimestamps().then(ts => setNwsTimestamps(ts.sort())).catch(e => console.error("NWS TS error", e));
+            console.log("[NWS Debug] Fetching NWS timestamps...");
+            apiRef.current.fetchNWSTimestamps()
+                .then(ts => {
+                    console.log("[NWS Debug] Received timestamps:", ts);
+                    setNwsTimestamps(ts.sort());
+                })
+                .catch(e => console.error("NWS TS error", e));
         }
     }, [showNWSAlerts, nwsTimestamps.length]);
 
@@ -542,8 +595,12 @@ export default function LeafletMap() {
 
     // Effect for NWS Alerts Rendering
     useEffect(() => {
+        console.log(`[NWS Debug] Render effect - showNWSAlerts=${showNWSAlerts}, nwsTimestamps.length=${nwsTimestamps.length}`);
         const map = mapInstanceRef.current;
-        if (!map) return;
+        if (!map) {
+            console.log("[NWS Debug] No map instance");
+            return;
+        }
 
         if (!showNWSAlerts) {
             if (nwsLayerRef.current) {
@@ -555,13 +612,17 @@ export default function LeafletMap() {
         }
 
         const renderNWS = async () => {
-            if (!apiRef.current || nwsTimestamps.length === 0) return;
+            if (!apiRef.current || nwsTimestamps.length === 0) {
+                console.log(`[NWS Debug] renderNWS early return - apiRef=${!!apiRef.current}, timestamps=${nwsTimestamps.length}`);
+                return;
+            }
 
             const currentMapTime = timestamps[currentIndex];
             if (!currentMapTime) return;
 
             // NWS alerts are updated less frequently, allow 2 hour tolerance
             const bestTs = findClosestTimestamp(currentMapTime, nwsTimestamps, 120 * 60 * 1000);
+            console.log(`[NWS Debug] currentMapTime=${currentMapTime}, nwsTimestamps=${nwsTimestamps.length}, bestTs=${bestTs}`);
             if (!bestTs) return;
 
             let dataToRender = null;
@@ -616,58 +677,51 @@ export default function LeafletMap() {
 
             try {
                 const features = dataToRender.data?.features || [];
+                console.log(`[NWS Debug] Features count: ${features.length}`);
 
+                // PHASE 1: Collect ALL unique geocodes from ALL features
+                const allGeocodes = new Set<string>();
+                for (const feature of features) {
+                    const props = feature.properties;
+                    if (!props) continue;
+                    if (!feature.geometry || (feature.geometry.type !== 'Polygon' && feature.geometry.type !== 'MultiPolygon')) {
+                        const geocodes = [...(props.geocode?.UGC || []), ...(props.geocode?.SAME || [])];
+                        geocodes.forEach(code => allGeocodes.add(code));
+                    }
+                }
+
+                console.log(`[NWS Debug] Fetching ${allGeocodes.size} unique geocodes in parallel...`);
+
+                // PHASE 2: Fetch ALL geocodes in ONE parallel batch
+                const geocodeArray = Array.from(allGeocodes);
+                await Promise.all(geocodeArray.map(code => ZoneResolver.resolveGeometry(code)));
+
+                console.log(`[NWS Debug] Geocode fetch complete, rendering...`);
+
+                // PHASE 3: Render all features (geocodes are now cached)
                 for (const feature of features) {
                     const props = feature.properties;
                     if (!props) continue;
 
-                    let coords: L.LatLngExpression | null = null;
+                    const geometries: (GeoJSON.Polygon | GeoJSON.MultiPolygon)[] = [];
 
-                    if (feature.geometry && feature.geometry.type === 'Point') {
-                        const point = feature.geometry as GeoJSON.Point;
-                        coords = [point.coordinates[1], point.coordinates[0]];
-                    } else if (feature.geometry && feature.geometry.type === 'Polygon') {
-                        const polygon = feature.geometry as GeoJSON.Polygon;
-                        const ring = polygon.coordinates[0];
-                        if (ring.length > 0) {
-                            let sumLat = 0, sumLon = 0;
-                            ring.forEach(pt => { sumLon += pt[0]; sumLat += pt[1]; });
-                            coords = [sumLat / ring.length, sumLon / ring.length];
-                        }
+                    if (feature.geometry && (feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon')) {
+                        geometries.push(feature.geometry as GeoJSON.Polygon | GeoJSON.MultiPolygon);
                     } else {
-                        // Infer from geocodes (SAME or UGC)
                         const geocodes = [...(props.geocode?.UGC || []), ...(props.geocode?.SAME || [])];
-                        if (geocodes.length > 0) {
-                            // Try first available geocode
-                            const resolved = await ZoneResolver.resolve(geocodes[0]);
-                            if (resolved) coords = resolved;
+                        for (const code of geocodes) {
+                            const resolved = await ZoneResolver.resolveGeometry(code); // Uses cache
+                            if (resolved?.geometry) {
+                                geometries.push(resolved.geometry);
+                            }
                         }
                     }
 
-                    if (!coords) continue;
+                    if (geometries.length === 0) continue;
 
                     const severity = props.severity || 'Unknown';
                     const colors = getEventColors(props.event, severity);
 
-                    const iconHtml = `
-                        <div style="position:relative;display:flex;align-items:center;justify-content:center;">
-                            <div style="position:absolute;width:28px;height:28px;border-radius:50%;background:${colors.dot};opacity:0.3;animation:pulse-glow 2s infinite;"></div>
-                            <div style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;background:${colors.bg};border:2px solid ${colors.border};border-radius:50%;color:white;">
-                                ${ALERT_ICON}
-                            </div>
-                        </div>
-                    `;
-
-                    const customIcon = L.divIcon({
-                        className: 'nws-alert-marker',
-                        html: iconHtml,
-                        iconSize: [28, 28],
-                        iconAnchor: [14, 14]
-                    });
-
-                    const marker = L.marker(coords, { icon: customIcon });
-
-                    // Format times
                     const formatTime = (iso: string) => {
                         try {
                             return new Date(iso).toLocaleString('en-US', {
@@ -694,13 +748,49 @@ export default function LeafletMap() {
                         </div>
                     `;
 
-                    marker.bindPopup(popup, {
+                    // Combine all polygons into a single MultiPolygon
+                    const allPolygons: number[][][][] = [];
+
+                    for (const geom of geometries) {
+                        if (geom.type === 'Polygon') {
+                            allPolygons.push(geom.coordinates);
+                        } else if (geom.type === 'MultiPolygon') {
+                            allPolygons.push(...geom.coordinates);
+                        }
+                    }
+
+                    if (allPolygons.length === 0) continue;
+
+                    // Create a MultiPolygon that merges all zones
+                    const mergedGeometry: GeoJSON.MultiPolygon = {
+                        type: 'MultiPolygon',
+                        coordinates: allPolygons
+                    };
+
+                    const geoJSONFeature: GeoJSON.Feature = {
+                        type: 'Feature',
+                        geometry: mergedGeometry,
+                        properties: props
+                    };
+
+                    const layer = L.geoJSON(geoJSONFeature, {
+                        style: () => ({
+                            color: colors.border,
+                            fillColor: colors.dot,
+                            weight: 0,  // No stroke - avoid interior lines
+                            opacity: 0,
+                            fillOpacity: 0.4
+                        })
+                    });
+
+                    layer.bindPopup(popup, {
                         closeButton: true,
                         className: 'nws-popup',
                         maxWidth: 350,
                         minWidth: 280
                     });
-                    marker.addTo(nwsLayerRef.current!);
+
+                    layer.addTo(nwsLayerRef.current!);
                 }
                 console.log(`Rendered NWS Alerts: Total=${features.length}`);
             } catch (e) { console.warn("Error rendering NWS", e); }
@@ -1355,11 +1445,16 @@ export default function LeafletMap() {
                 <div ref={mapContainerRef} className="h-full w-full z-0" />
 
                 {/* Top Bar for Time */}
+                {/* Top Bar for Time & Lat/Lon */}
                 {isConnected && (
-                    <div className={`absolute top-4 left-1/2 transform -translate-x-1/2 z-[400] backdrop-blur-md border rounded-full px-6 py-2 shadow-xl flex items-center gap-4 pointer-events-none select-none transition-all duration-500 ${isFlashing ? 'bg-green-900/90 border-green-500/80 scale-105' : 'bg-gray-900/90 border-gray-700/50'}`}>
-                        <div className={`text-2xl font-mono font-bold drop-shadow-sm tracking-wider transition-colors duration-300 ${isFlashing ? 'text-green-300' : 'text-blue-400'}`}>{time || '--:--'}</div>
-                        <div className={`h-8 w-px transition-colors duration-300 ${isFlashing ? 'bg-green-600' : 'bg-gray-700'}`}></div>
-                        <div className={`text-sm font-medium tracking-wide uppercase transition-colors duration-300 ${isFlashing ? 'text-green-200' : 'text-gray-400'}`}>{date || 'YYYY-MM-DD'}</div>
+                    <div className={`absolute top-4 left-1/2 transform -translate-x-1/2 z-[400] flex flex-col items-center pointer-events-none select-none backdrop-blur-md border rounded-2xl shadow-xl px-8 py-3 transition-all duration-500 gap-1 ${isFlashing ? 'bg-green-900/90 border-green-500/80 scale-105' : 'bg-gray-900/90 border-gray-700/50'}`}>
+                        <div className="flex items-center gap-4">
+                            <div className={`text-3xl font-mono font-bold drop-shadow-sm tracking-wider transition-colors duration-300 ${isFlashing ? 'text-green-300' : 'text-blue-400'}`}>{time || '--:--'}</div>
+                            <div className={`h-8 w-px transition-colors duration-300 ${isFlashing ? 'bg-green-600' : 'bg-gray-700'}`}></div>
+                            <div className={`text-base font-medium tracking-wide uppercase transition-colors duration-300 ${isFlashing ? 'text-green-200' : 'text-gray-400'}`}>{date || 'YYYY-MM-DD'}</div>
+                        </div>
+                        <div className="w-full h-px bg-gray-700/50 my-1"></div>
+                        <LatLonDisplay map={mapInstance} />
                     </div>
                 )}
 
