@@ -20,6 +20,13 @@ interface MapSettingsPanelProps {
     onToggleNWSAlerts?: () => void;
     showWpc?: boolean;
     onToggleWpc?: () => void;
+    // WPC ERO
+    showWpcEroDay1?: boolean;
+    onToggleWpcEroDay1?: () => void;
+    showWpcEroDay2?: boolean;
+    onToggleWpcEroDay2?: () => void;
+    showWpcEroDay3?: boolean;
+    onToggleWpcEroDay3?: () => void;
 }
 
 // Maps product names to human-readable display names
@@ -79,9 +86,15 @@ export default function MapSettingsPanel({
     onToggleNWSAlerts,
     showWpc = false,
     onToggleWpc,
+    showWpcEroDay1 = false,
+    onToggleWpcEroDay1,
+    showWpcEroDay2 = false,
+    onToggleWpcEroDay2,
+    showWpcEroDay3 = false,
+    onToggleWpcEroDay3,
 }: MapSettingsPanelProps) {
     const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-        'spc': true,
+        'outlooks': true,
         'radar': true,
         'surface': true
     });
@@ -141,20 +154,21 @@ export default function MapSettingsPanel({
             {/* Scrollable Content Area */}
             <div className="flex-1 overflow-y-auto min-h-0 custom-scrollbar px-3 py-4 space-y-6">
 
-                {/* SPC Outlooks Section */}
+                {/* Outlooks Section (SPC + WPC ERO) */}
                 <div className="bg-gray-800/40 rounded-xl overflow-hidden border border-gray-800/50">
                     <button
-                        onClick={() => toggleSection('spc')}
+                        onClick={() => toggleSection('outlooks')}
                         className="w-full flex items-center justify-between px-4 py-3 bg-gray-800/60 hover:bg-gray-800 transition-colors group"
                     >
-                        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest group-hover:text-gray-200">SPC Outlooks (Day 1)</span>
-                        {openSections['spc'] ? <ChevronDown size={14} className="text-gray-500" /> : <ChevronRight size={14} className="text-gray-500" />}
+                        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest group-hover:text-gray-200">Outlooks</span>
+                        {openSections['outlooks'] ? <ChevronDown size={14} className="text-gray-500" /> : <ChevronRight size={14} className="text-gray-500" />}
                     </button>
 
-                    {openSections['spc'] && (
+                    {openSections['outlooks'] && (
                         <div className="p-2 space-y-1">
+                            <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">SPC Storms</div>
                             <OverlayItem
-                                label="Categorical"
+                                label="Categorical Outlook"
                                 active={showSpcOutlook}
                                 onToggle={onToggleSpcOutlook}
                                 colorClass="green"
@@ -179,6 +193,29 @@ export default function MapSettingsPanel({
                                 onToggle={onToggleSpcWind}
                                 colorClass="yellow"
                                 icon={Wind}
+                            />
+
+                            <div className="mt-3 px-3 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider border-t border-gray-800 pt-3">WPC Rainfall</div>
+                            <OverlayItem
+                                label="ERO Day 1"
+                                active={showWpcEroDay1}
+                                onToggle={onToggleWpcEroDay1}
+                                colorClass="emerald"
+                                icon={CloudRain}
+                            />
+                            <OverlayItem
+                                label="ERO Day 2"
+                                active={showWpcEroDay2}
+                                onToggle={onToggleWpcEroDay2}
+                                colorClass="teal"
+                                icon={CloudRain}
+                            />
+                            <OverlayItem
+                                label="ERO Day 3"
+                                active={showWpcEroDay3}
+                                onToggle={onToggleWpcEroDay3}
+                                colorClass="cyan"
+                                icon={CloudRain}
                             />
                         </div>
                     )}

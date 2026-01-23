@@ -54,7 +54,7 @@ export function useWPCLayer({
                         ">${parseInt(String(pressure))}</div>` : '';
 
                         return L.divIcon({
-                            className: `wpc-pressure-${type.toLowerCase()}`,
+                            className: '', // Remove default white background
                             html: `<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 40px; height: 60px;">
                                 <div style="
                                     color: ${color};
@@ -132,6 +132,7 @@ export function useWPCLayer({
                                             rotate: true,
                                             markerOptions: {
                                                 icon: L.divIcon({
+                                                    className: '',
                                                     html: iconHtml('#1d4ed8'),
                                                     iconSize: [18, 14],
                                                     iconAnchor: [9, 14],
@@ -155,6 +156,7 @@ export function useWPCLayer({
                                             rotate: true,
                                             markerOptions: {
                                                 icon: L.divIcon({
+                                                    className: '',
                                                     html: iconHtml('#dc2626'),
                                                     iconSize: [18, 14],
                                                     iconAnchor: [9, 14],
@@ -174,8 +176,8 @@ export function useWPCLayer({
                                             <path d="${d}" fill="${color}" stroke="${color}" stroke-width="1"/>
                                         </svg>`;
                                     };
-                                    patterns.push({ offset: 25, repeat: 80, symbol: LeafletSymbol.marker({ rotate: true, markerOptions: { icon: L.divIcon({ html: iconHtml('tri'), iconSize: [18, 14], iconAnchor: [9, 14] }) } }) });
-                                    patterns.push({ offset: 65, repeat: 80, symbol: LeafletSymbol.marker({ rotate: true, markerOptions: { icon: L.divIcon({ html: iconHtml('semi'), iconSize: [18, 14], iconAnchor: [9, 14] }) } }) });
+                                    patterns.push({ offset: 25, repeat: 80, symbol: LeafletSymbol.marker({ rotate: true, markerOptions: { icon: L.divIcon({ className: '', html: iconHtml('tri'), iconSize: [18, 14], iconAnchor: [9, 14] }) } }) });
+                                    patterns.push({ offset: 65, repeat: 80, symbol: LeafletSymbol.marker({ rotate: true, markerOptions: { icon: L.divIcon({ className: '', html: iconHtml('semi'), iconSize: [18, 14], iconAnchor: [9, 14] }) } }) });
                                 }
                                 else if (type.includes('STNRY') || type.includes('STATIONARY')) {
                                     const semiHtml = () => {
@@ -198,8 +200,8 @@ export function useWPCLayer({
                                         </svg>`;
                                     };
 
-                                    patterns.push({ offset: 25, repeat: 80, symbol: LeafletSymbol.marker({ rotate: true, markerOptions: { icon: L.divIcon({ html: semiHtml(), iconSize: [18, 14], iconAnchor: [9, 14] }) } }) });
-                                    patterns.push({ offset: 65, repeat: 80, symbol: LeafletSymbol.marker({ rotate: true, markerOptions: { icon: L.divIcon({ html: triHtml(), iconSize: [18, 14], iconAnchor: [9, 14] }) } }) });
+                                    patterns.push({ offset: 25, repeat: 80, symbol: LeafletSymbol.marker({ rotate: true, markerOptions: { icon: L.divIcon({ className: '', html: semiHtml(), iconSize: [18, 14], iconAnchor: [9, 14] }) } }) });
+                                    patterns.push({ offset: 65, repeat: 80, symbol: LeafletSymbol.marker({ rotate: true, markerOptions: { icon: L.divIcon({ className: '', html: triHtml(), iconSize: [18, 14], iconAnchor: [9, 14] }) } }) });
                                 }
 
                                 if (patterns.length > 0) {

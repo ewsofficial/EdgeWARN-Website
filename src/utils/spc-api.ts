@@ -35,7 +35,7 @@ const SPC_GEOJSON_URLS: Record<SPCOutlookType, string> = {
  */
 export async function fetchSPCDay1Outlook(type: SPCOutlookType = 'categorical'): Promise<GeoJSON.FeatureCollection> {
     const url = SPC_GEOJSON_URLS[type];
-    
+
     try {
         const response = await fetch(url, {
             headers: {
@@ -47,7 +47,15 @@ export async function fetchSPCDay1Outlook(type: SPCOutlookType = 'categorical'):
             throw new Error(`SPC API error: ${response.status} ${response.statusText}`);
         }
 
-        const data = await response.json();
+        const text = await response.text();
+        if (!text || text.trim().length === 0) {
+            return {
+                type: "FeatureCollection",
+                features: []
+            };
+        }
+
+        const data = JSON.parse(text);
         return data;
     } catch (error) {
         console.error(`Failed to fetch SPC outlook (${type}):`, error);

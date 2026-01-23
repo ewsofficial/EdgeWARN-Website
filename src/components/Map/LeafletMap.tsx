@@ -22,6 +22,7 @@ import { useSPCLayer } from './hooks/useSPCLayer';
 import { useMETARLayer } from './hooks/useMETARLayer';
 import { useNWSLayer } from './hooks/useNWSLayer';
 import { useWPCLayer } from './hooks/useWPCLayer';
+import { useWPCEroLayer } from './hooks/useWPCEroLayer';
 import {
     DEFAULT_BOUNDS,
     DEFAULT_MAP_CONFIG,
@@ -81,6 +82,11 @@ export default function LeafletMap() {
     const [activePanel, setActivePanel] = useState<'map' | 'connection' | 'list' | 'settings' | null>(null);
     const [selectedCellInfo, setSelectedCellInfo] = useState<string | null>(null);
 
+    // WPC ERO State
+    const [showWpcEroDay1, setShowWpcEroDay1] = useState(false);
+    const [showWpcEroDay2, setShowWpcEroDay2] = useState(false);
+    const [showWpcEroDay3, setShowWpcEroDay3] = useState(false);
+
     // --- Hooks ---
     useSPCLayer({
         map: mapInstance,
@@ -110,6 +116,13 @@ export default function LeafletMap() {
         map: mapInstance,
         ewmrsApi: ewmrsRef.current,
         showWpc
+    });
+
+    useWPCEroLayer({
+        map: mapInstance,
+        showDay1: showWpcEroDay1,
+        showDay2: showWpcEroDay2,
+        showDay3: showWpcEroDay3
     });
 
     // Toggles (hardcoded)
@@ -773,6 +786,12 @@ export default function LeafletMap() {
                                 onToggleNWSAlerts={() => setShowNWSAlerts(!showNWSAlerts)}
                                 showWpc={showWpc}
                                 onToggleWpc={() => setShowWpc(!showWpc)}
+                                showWpcEroDay1={showWpcEroDay1}
+                                onToggleWpcEroDay1={() => setShowWpcEroDay1(!showWpcEroDay1)}
+                                showWpcEroDay2={showWpcEroDay2}
+                                onToggleWpcEroDay2={() => setShowWpcEroDay2(!showWpcEroDay2)}
+                                showWpcEroDay3={showWpcEroDay3}
+                                onToggleWpcEroDay3={() => setShowWpcEroDay3(!showWpcEroDay3)}
                             />
                         )}
 
