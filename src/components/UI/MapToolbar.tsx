@@ -38,8 +38,23 @@ interface MapToolbarProps {
 }
 
 export function MapToolbar({ children }: MapToolbarProps) {
+    const toolbarRef = React.useRef<HTMLDivElement>(null);
+
+    React.useEffect(() => {
+        if (toolbarRef.current) {
+            // Prevent clicks and scrolls from propagating to the map
+            // This is crucial to avoid Leaflet trying to handle events on toolbar elements
+            import('leaflet').then(L => {
+                if (toolbarRef.current) {
+                    L.DomEvent.disableClickPropagation(toolbarRef.current);
+                    L.DomEvent.disableScrollPropagation(toolbarRef.current);
+                }
+            });
+        }
+    }, []);
+
     return (
-        <div className="absolute bottom-4 right-4 z-[500] flex flex-col gap-2">
+        <div ref={toolbarRef} className="absolute bottom-4 right-4 z-[500] flex flex-col gap-2">
             {children}
         </div>
     );

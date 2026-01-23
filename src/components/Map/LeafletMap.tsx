@@ -169,6 +169,12 @@ export default function LeafletMap() {
             mapInstanceRef.current = map;
             setMapInstance(map);
 
+            // Resize Observer to handle container size changes
+            const resizeObserver = new ResizeObserver(() => {
+                map.invalidateSize();
+            });
+            resizeObserver.observe(mapContainerRef.current);
+
             // Setup Reference Bounds Layer
             const referenceBounds: L.LatLngBoundsExpression = [[20, -130], [55, -60]];
             boundsLayerRef.current = L.rectangle(referenceBounds, {
