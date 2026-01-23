@@ -11,6 +11,7 @@ import SlidebarControl from '../UI/SlidebarControl';
 import { MapToolbar } from '../UI/MapToolbar';
 import { DistanceTool } from '../UI/DistanceTool';
 import { CircleTool } from '../UI/CircleTool';
+import { LocationTool } from '../UI/LocationTool';
 import { TopBar } from './TopBar';
 import ConnectionModal from '../UI/ConnectionModal';
 import MapSettingsPanel from '../UI/MapSettingsPanel';
@@ -883,6 +884,7 @@ export default function LeafletMap() {
 
                 {/* Modular Toolbar */}
                 <MapToolbar>
+                    <LocationTool map={mapInstance} />
                     <DistanceTool map={mapInstance} />
                     <CircleTool map={mapInstance} />
                 </MapToolbar>
