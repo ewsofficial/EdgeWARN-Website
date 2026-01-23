@@ -53,11 +53,25 @@ export function LocationTool({ map }: LocationToolProps) {
         };
 
         const onLocationError = (e: L.ErrorEvent) => {
-            console.warn("Location access denied or error:", e.message);
+            console.warn("Location error:", e);
             setIsLocating(false);
-            setHasLocation(false);
-            // Optionally alert the user
-            alert("Could not access your location. Please ensure location services are enabled.");
+            
+            let msg = "Could not access your location.";
+            
+            // Leaflet ErrorEvent message often contains the browser's error text
+            if (e.message.toLowerCase().includes("denied")) {
+                msg = "Location access denied. Please allow location access in your browser settings.";
+            } else if (e.message.toLowerCase().includes("timeout")) {
+                msg = "Location request timed out. Please try again.";
+            } else if (e.message.toLowerCase().includes("unavailable")) {
+                msg = "Location unavailable. Please check your network or GPS.";
+            } else {
+                msg = `Location error: ${e.message}`;
+            }
+
+            alert(msg);
+            // We don't necessarily setHasLocation(false) here, in case they had a previous valid location 
+            // and just failed to update. But if they never had one, it remains false.
         };
 
         map.on('locationfound', onLocationFound);
@@ -76,16 +90,10 @@ export function LocationTool({ map }: LocationToolProps) {
     const handleLocate = () => {
         if (!map) return;
         
-        if (hasLocation) {
-            // If we already have location, just re-center
-             // We can trigger locate again to refine or just setView if we stored coords
-             // Triggering locate again is safer to ensure up-to-date position
-             setIsLocating(true);
-             map.locate({ setView: true, maxZoom: 10 });
-        } else {
-            setIsLocating(true);
-            map.locate({ setView: true, maxZoom: 10 });
-        }
+        setIsLocating(true);
+        // timeout: 10000ms (10s) to avoid hanging
+        // enableHighAccuracy: false (default) is faster and often sufficient
+        map.locate({ setView: true, maxZoom: 12, timeout: 10000 });
     };
 
     return (
