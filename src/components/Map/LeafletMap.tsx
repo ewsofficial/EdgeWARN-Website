@@ -88,6 +88,37 @@ export default function LeafletMap() {
     const [showWpcEroDay2, setShowWpcEroDay2] = useState(false);
     const [showWpcEroDay3, setShowWpcEroDay3] = useState(false);
 
+    // Mutual Exclusion Handlers for WPC ERO
+    const handleToggleWpcEroDay1 = () => {
+        if (!showWpcEroDay1) {
+            setShowWpcEroDay1(true);
+            setShowWpcEroDay2(false);
+            setShowWpcEroDay3(false);
+        } else {
+            setShowWpcEroDay1(false);
+        }
+    };
+
+    const handleToggleWpcEroDay2 = () => {
+        if (!showWpcEroDay2) {
+            setShowWpcEroDay2(true);
+            setShowWpcEroDay1(false);
+            setShowWpcEroDay3(false);
+        } else {
+            setShowWpcEroDay2(false);
+        }
+    };
+
+    const handleToggleWpcEroDay3 = () => {
+        if (!showWpcEroDay3) {
+            setShowWpcEroDay3(true);
+            setShowWpcEroDay1(false);
+            setShowWpcEroDay2(false);
+        } else {
+            setShowWpcEroDay3(false);
+        }
+    };
+
     // --- Hooks ---
     useSPCLayer({
         map: mapInstance,
@@ -798,11 +829,11 @@ export default function LeafletMap() {
                                 showWpc={showWpc}
                                 onToggleWpc={() => setShowWpc(!showWpc)}
                                 showWpcEroDay1={showWpcEroDay1}
-                                onToggleWpcEroDay1={() => setShowWpcEroDay1(!showWpcEroDay1)}
+                                onToggleWpcEroDay1={handleToggleWpcEroDay1}
                                 showWpcEroDay2={showWpcEroDay2}
-                                onToggleWpcEroDay2={() => setShowWpcEroDay2(!showWpcEroDay2)}
+                                onToggleWpcEroDay2={handleToggleWpcEroDay2}
                                 showWpcEroDay3={showWpcEroDay3}
-                                onToggleWpcEroDay3={() => setShowWpcEroDay3(!showWpcEroDay3)}
+                                onToggleWpcEroDay3={handleToggleWpcEroDay3}
                             />
                         )}
 
