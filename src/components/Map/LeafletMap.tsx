@@ -147,8 +147,12 @@ export default function LeafletMap() {
                 center: [37.8, -96],
                 zoom: 4,
                 minZoom: 3,
-                zoomControl: false // Move zoom control if needed, or keep default
+                zoomControl: false, // Move zoom control if needed, or keep default
+                dragging: true // Explicitly enable dragging
             });
+
+            // Ensure dragging is enabled
+            map.dragging.enable();
 
             // OSM WMS via Terrestris
             L.tileLayer.wms('https://ows.terrestris.de/osm/service', {
@@ -865,7 +869,7 @@ export default function LeafletMap() {
 
             {/* Map Area */}
             <div className="flex-1 relative">
-                <div ref={mapContainerRef} className="h-full w-full z-0" />
+                <div ref={mapContainerRef} className="h-full w-full" />
 
                 {/* Top Bar for Time */}
                 {/* Top Bar for Time & Lat/Lon */}
