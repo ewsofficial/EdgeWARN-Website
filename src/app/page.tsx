@@ -63,6 +63,19 @@ export default function Home() {
                 </span>
                 <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-cyan-400 opacity-0 group-hover:opacity-20 transition-opacity duration-300" />
               </Link>
+
+              <Link 
+                href="/alerts" 
+                className="group relative w-full sm:w-auto inline-flex items-center justify-center px-8 py-3.5 text-lg font-semibold text-amber-500 bg-amber-950/30 hover:bg-amber-900/40 border border-amber-500/30 hover:border-amber-500/50 rounded-xl transition-all duration-300 backdrop-blur-sm"
+              >
+                <span className="flex items-center gap-2">
+                  <span className="relative flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-500 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+                  </span>
+                  View Alerts
+                </span>
+              </Link>
               
               <Link 
                 href="/coming-soon" 

@@ -24,6 +24,7 @@ import { useMETARLayer } from './hooks/useMETARLayer';
 import { useNWSLayer } from './hooks/useNWSLayer';
 import { useWPCLayer } from './hooks/useWPCLayer';
 import { useWPCEroLayer } from './hooks/useWPCEroLayer';
+import { useWSSILayer } from './hooks/useWSSILayer';
 import {
     DEFAULT_BOUNDS,
     DEFAULT_MAP_CONFIG,
@@ -89,6 +90,11 @@ export default function LeafletMap() {
     const [showWpcEroDay2, setShowWpcEroDay2] = useState(false);
     const [showWpcEroDay3, setShowWpcEroDay3] = useState(false);
 
+    // WPC WSSI State
+    const [showWssiDay1, setShowWssiDay1] = useState(false);
+    const [showWssiDay2, setShowWssiDay2] = useState(false);
+    const [showWssiDay3, setShowWssiDay3] = useState(false);
+
     // Mutual Exclusion Handlers for WPC ERO
     const handleToggleWpcEroDay1 = () => {
         if (!showWpcEroDay1) {
@@ -117,6 +123,37 @@ export default function LeafletMap() {
             setShowWpcEroDay2(false);
         } else {
             setShowWpcEroDay3(false);
+        }
+    };
+
+    // Mutual Exclusion Handlers for WSSI
+    const handleToggleWssiDay1 = () => {
+        if (!showWssiDay1) {
+            setShowWssiDay1(true);
+            setShowWssiDay2(false);
+            setShowWssiDay3(false);
+        } else {
+            setShowWssiDay1(false);
+        }
+    };
+
+    const handleToggleWssiDay2 = () => {
+        if (!showWssiDay2) {
+            setShowWssiDay2(true);
+            setShowWssiDay1(false);
+            setShowWssiDay3(false);
+        } else {
+            setShowWssiDay2(false);
+        }
+    };
+
+    const handleToggleWssiDay3 = () => {
+        if (!showWssiDay3) {
+            setShowWssiDay3(true);
+            setShowWssiDay1(false);
+            setShowWssiDay2(false);
+        } else {
+            setShowWssiDay3(false);
         }
     };
 
@@ -156,6 +193,13 @@ export default function LeafletMap() {
         showDay1: showWpcEroDay1,
         showDay2: showWpcEroDay2,
         showDay3: showWpcEroDay3
+    });
+
+    useWSSILayer({
+        map: mapInstance,
+        showDay1: showWssiDay1,
+        showDay2: showWssiDay2,
+        showDay3: showWssiDay3
     });
 
     // Toggles (hardcoded)
@@ -859,6 +903,12 @@ export default function LeafletMap() {
                                 onToggleWpcEroDay2={handleToggleWpcEroDay2}
                                 showWpcEroDay3={showWpcEroDay3}
                                 onToggleWpcEroDay3={handleToggleWpcEroDay3}
+                                showWssiDay1={showWssiDay1}
+                                onToggleWssiDay1={handleToggleWssiDay1}
+                                showWssiDay2={showWssiDay2}
+                                onToggleWssiDay2={handleToggleWssiDay2}
+                                showWssiDay3={showWssiDay3}
+                                onToggleWssiDay3={handleToggleWssiDay3}
                             />
                         )}
 

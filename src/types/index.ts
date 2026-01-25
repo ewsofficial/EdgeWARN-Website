@@ -112,6 +112,7 @@ export interface NWSAlertFeature {
     type: "Feature";
     geometry: GeoJSON.Geometry | null;
     properties: NWSAlertProperties;
+    Polygon?: number[][] | number[][][];
 }
 
 export interface NWSData {

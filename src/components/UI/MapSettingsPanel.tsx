@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Layers, Eye, EyeOff, ChevronDown, ChevronRight, Wind, CloudHail, Tornado, Waves, CloudRain, ArrowUpFromLine, Droplets, Activity, Thermometer, AlertTriangle } from 'lucide-react';
+import { Layers, Eye, EyeOff, ChevronDown, ChevronRight, Wind, CloudHail, Tornado, Waves, CloudRain, ArrowUpFromLine, Droplets, Activity, Thermometer, AlertTriangle, Snowflake } from 'lucide-react';
 
 interface MapSettingsPanelProps {
     products: string[];
@@ -27,6 +27,13 @@ interface MapSettingsPanelProps {
     onToggleWpcEroDay2?: () => void;
     showWpcEroDay3?: boolean;
     onToggleWpcEroDay3?: () => void;
+    // WSSI
+    showWssiDay1?: boolean;
+    onToggleWssiDay1?: () => void;
+    showWssiDay2?: boolean;
+    onToggleWssiDay2?: () => void;
+    showWssiDay3?: boolean;
+    onToggleWssiDay3?: () => void;
 }
 
 // Maps product names to human-readable display names
@@ -92,11 +99,18 @@ export default function MapSettingsPanel({
     onToggleWpcEroDay2,
     showWpcEroDay3 = false,
     onToggleWpcEroDay3,
+    showWssiDay1 = false,
+    onToggleWssiDay1,
+    showWssiDay2 = false,
+    onToggleWssiDay2,
+    showWssiDay3 = false,
+    onToggleWssiDay3,
 }: MapSettingsPanelProps) {
     const [openSections, setOpenSections] = useState<Record<string, boolean>>({
         'outlooks': true,
         'radar': true,
-        'surface': true
+        'surface': true,
+        'winter': true
     });
 
     const toggleSection = (section: string) => {
@@ -253,6 +267,44 @@ export default function MapSettingsPanel({
                                 onToggle={onToggleWpc}
                                 colorClass="indigo"
                                 icon={Activity}
+                            />
+                        </div>
+                    )}
+                </div>
+
+                {/* Winter Weather Section */}
+                <div className="bg-gray-800/40 rounded-xl overflow-hidden border border-gray-800/50">
+                    <button
+                        onClick={() => toggleSection('winter')}
+                        className="w-full flex items-center justify-between px-4 py-3 bg-gray-800/60 hover:bg-gray-800 transition-colors group"
+                    >
+                        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest group-hover:text-gray-200">Winter Weather</span>
+                        {openSections['winter'] ? <ChevronDown size={14} className="text-gray-500" /> : <ChevronRight size={14} className="text-gray-500" />}
+                    </button>
+
+                    {openSections['winter'] && (
+                        <div className="p-2 space-y-1">
+                            <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Winter Storm Severity</div>
+                            <OverlayItem
+                                label="WSSI Day 1"
+                                active={!!showWssiDay1}
+                                onToggle={onToggleWssiDay1}
+                                colorClass="blue"
+                                icon={CloudHail}
+                            />
+                            <OverlayItem
+                                label="WSSI Day 2"
+                                active={!!showWssiDay2}
+                                onToggle={onToggleWssiDay2}
+                                colorClass="indigo"
+                                icon={CloudHail}
+                            />
+                            <OverlayItem
+                                label="WSSI Day 3"
+                                active={!!showWssiDay3}
+                                onToggle={onToggleWssiDay3}
+                                colorClass="purple"
+                                icon={CloudHail}
                             />
                         </div>
                     )}
