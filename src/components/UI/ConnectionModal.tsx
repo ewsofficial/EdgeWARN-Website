@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { getSavedEndpoints, removeEndpoint, SavedEndpoint } from '@/utils/endpoint-cache';
-import { ChevronDown, Trash2, Clock } from 'lucide-react';
+import { ChevronDown, Trash2, Clock, Server, Activity, ShieldCheck } from 'lucide-react';
 
 interface ConnectionModalProps {
     isOpen: boolean;
@@ -65,104 +65,121 @@ export default function ConnectionModal({
     };
 
     return (
-        <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-300">
-            <div className="w-full max-w-lg bg-gray-900/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-8 relative overflow-hidden ring-1 ring-white/5 mx-4">
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-300">
+            <div className="w-full max-w-[480px] bg-[#0c1218]/95 backdrop-blur-2xl border border-white/10 rounded-3xl shadow-[0_0_50px_-12px_rgba(0,0,0,0.7)] p-8 relative overflow-hidden ring-1 ring-white/5">
 
-                {/* Subtle glow effect */}
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-1 bg-gradient-to-r from-transparent via-blue-500/50 to-transparent blur-sm"></div>
+                {/* Decorative Top Gradient */}
+                <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-blue-500/50 to-transparent"></div>
+                <div className="absolute top-0 inset-x-0 h-24 bg-gradient-to-b from-blue-500/5 to-transparent pointer-events-none"></div>
 
-                <div className="text-center mb-8">
-                    <h2 className="text-3xl font-bold text-white tracking-tight mb-2 font-display">
-                        EdgeWARN
-                    </h2>
-                    <p className="text-gray-400 text-sm font-medium tracking-wide uppercase opacity-80">
+                <div className="relative text-center mb-8">
+                    <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500/20 to-blue-600/10 border border-blue-500/20 mb-4 shadow-lg shadow-blue-500/5">
+                        <Server className="w-6 h-6 text-blue-400" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-white tracking-tight mb-2">
                         System Connection
+                    </h2>
+                    <p className="text-gray-400 text-sm">
+                        Configure your EdgeWARN and EWMRS endpoints
                     </p>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-6">
+                <form onSubmit={handleSubmit} className="space-y-5 relative">
                     {/* Saved Endpoints Dropdown */}
                     {savedEndpoints.length > 0 && (
-                        <div className="relative">
+                        <div className="relative z-20">
                             <button
                                 type="button"
                                 onClick={() => setShowSavedDropdown(!showSavedDropdown)}
-                                className="w-full flex items-center justify-between gap-2 bg-blue-600/20 border border-blue-500/30 text-blue-400 rounded-lg px-4 py-2.5 text-sm hover:bg-blue-600/30 transition-colors"
+                                className="w-full flex items-center justify-between gap-3 bg-white/5 border border-white/10 text-gray-300 rounded-xl px-4 py-3 text-sm hover:bg-white/10 hover:border-white/20 transition-all duration-200 group"
                             >
-                                <div className="flex items-center gap-2">
-                                    <Clock size={16} />
-                                    <span>Saved Endpoints ({savedEndpoints.length})</span>
+                                <div className="flex items-center gap-2.5">
+                                    <Clock size={16} className="text-blue-400 group-hover:text-blue-300 transition-colors" />
+                                    <span className="font-medium">Load Saved Configuration</span>
+                                    <span className="bg-white/10 text-xs px-2 py-0.5 rounded-full text-gray-400">{savedEndpoints.length}</span>
                                 </div>
-                                <ChevronDown size={16} className={`transform transition-transform ${showSavedDropdown ? 'rotate-180' : ''}`} />
+                                <ChevronDown size={16} className={`text-gray-500 transition-transform duration-200 ${showSavedDropdown ? 'rotate-180' : ''}`} />
                             </button>
 
                             {showSavedDropdown && (
-                                <div className="absolute z-10 w-full mt-2 bg-gray-800 border border-gray-700 rounded-lg shadow-xl overflow-hidden">
-                                    {savedEndpoints.map((endpoint) => (
-                                        <div
-                                            key={endpoint.id}
-                                            onClick={() => handleSelectSaved(endpoint)}
-                                            className="flex items-center justify-between px-4 py-3 hover:bg-gray-700 cursor-pointer border-b border-gray-700/50 last:border-0 group"
-                                        >
-                                            <div className="flex-1 min-w-0">
-                                                <div className="text-sm font-medium text-gray-200 truncate">{endpoint.name}</div>
-                                                <div className="text-xs text-gray-500 truncate">{endpoint.apiUrl}</div>
-                                                <div className="text-xs text-gray-600">{formatTimestamp(endpoint.lastUsed)}</div>
-                                            </div>
-                                            <button
-                                                type="button"
-                                                onClick={(e) => handleRemoveSaved(e, endpoint.id)}
-                                                className="ml-2 p-1.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors opacity-0 group-hover:opacity-100"
-                                                title="Remove saved endpoint"
+                                <div className="absolute z-50 w-full mt-2 bg-[#1a1f26] border border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                                    <div className="max-h-[240px] overflow-y-auto custom-scrollbar">
+                                        {savedEndpoints.map((endpoint) => (
+                                            <div
+                                                key={endpoint.id}
+                                                onClick={() => handleSelectSaved(endpoint)}
+                                                className="flex items-center justify-between px-4 py-3 hover:bg-white/5 cursor-pointer border-b border-white/5 last:border-0 group transition-colors"
                                             >
-                                                <Trash2 size={14} />
-                                            </button>
-                                        </div>
-                                    ))}
+                                                <div className="flex-1 min-w-0 mr-3">
+                                                    <div className="flex items-center gap-2 mb-0.5">
+                                                        <span className="text-sm font-medium text-gray-200 truncate">{endpoint.name}</span>
+                                                    </div>
+                                                    <div className="text-[11px] font-mono text-gray-500 truncate mb-0.5">{endpoint.apiUrl}</div>
+                                                    <div className="text-[10px] text-gray-600">{formatTimestamp(endpoint.lastUsed)}</div>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => handleRemoveSaved(e, endpoint.id)}
+                                                    className="p-2 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                                                    title="Remove saved endpoint"
+                                                >
+                                                    <Trash2 size={15} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             )}
                         </div>
                     )}
 
-                    <div className="space-y-1">
-                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">
-                            Core API Endpoint
-                        </label>
-                        <div className="relative group">
-                            <input
-                                type="text"
-                                value={apiUrl}
-                                onChange={(e) => setApiUrl(e.target.value)}
-                                placeholder="http://localhost:5000"
-                                className="w-full bg-black/40 border border-white/10 text-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-all placeholder:text-gray-700 hover:border-white/20"
-                            />
-                            {/* Input highlight on focus/hover */}
-                            <div className="absolute inset-0 rounded-lg bg-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+                    <div className="space-y-4">
+                        <div className="space-y-1.5">
+                            <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider pl-1">
+                                <Activity size={12} className="text-blue-400" />
+                                Core API Endpoint
+                            </label>
+                            <div className="relative group">
+                                <input
+                                    type="text"
+                                    value={apiUrl}
+                                    onChange={(e) => setApiUrl(e.target.value)}
+                                    placeholder="http://localhost:5000"
+                                    className="w-full bg-black/20 border border-white/10 text-gray-200 rounded-xl px-4 py-3.5 text-sm font-mono focus:outline-none focus:border-blue-500/50 focus:bg-blue-900/10 focus:ring-4 focus:ring-blue-500/10 transition-all placeholder:text-gray-700"
+                                />
+                            </div>
                         </div>
-                    </div>
 
-                    <div className="space-y-1">
-                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">
-                            EWMRS Endpoint
-                        </label>
-                        <div className="relative group">
-                            <input
-                                type="text"
-                                value={ewmrsUrl}
-                                onChange={(e) => setEwmrsUrl(e.target.value)}
-                                placeholder="http://localhost:3003"
-                                className="w-full bg-black/40 border border-white/10 text-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-all placeholder:text-gray-700 hover:border-white/20"
-                            />
-                             <div className="absolute inset-0 rounded-lg bg-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+                        <div className="space-y-1.5">
+                            <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider pl-1">
+                                <ShieldCheck size={12} className="text-purple-400" />
+                                EWMRS Endpoint
+                            </label>
+                            <div className="relative group">
+                                <input
+                                    type="text"
+                                    value={ewmrsUrl}
+                                    onChange={(e) => setEwmrsUrl(e.target.value)}
+                                    placeholder="http://localhost:3003"
+                                    className="w-full bg-black/20 border border-white/10 text-gray-200 rounded-xl px-4 py-3.5 text-sm font-mono focus:outline-none focus:border-purple-500/50 focus:bg-purple-900/10 focus:ring-4 focus:ring-purple-500/10 transition-all placeholder:text-gray-700"
+                                />
+                            </div>
                         </div>
                     </div>
 
                     {error && (
-                        <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 backdrop-blur-sm animate-in zoom-in-95 duration-200">
-                            <p className="text-red-400 text-xs flex items-center gap-2 font-medium">
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                {error}
-                            </p>
+                        <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 backdrop-blur-sm animate-in zoom-in-95 duration-200">
+                            <div className="flex items-start gap-3">
+                                <div className="p-1 bg-red-500/20 rounded-full">
+                                    <svg className="w-3.5 h-3.5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                                </div>
+                                <div>
+                                    <h4 className="text-red-400 text-xs font-bold uppercase tracking-wide mb-0.5">Connection Error</h4>
+                                    <p className="text-red-300/80 text-xs leading-relaxed">
+                                        {error}
+                                    </p>
+                                </div>
+                            </div>
                         </div>
                     )}
 
@@ -170,13 +187,13 @@ export default function ConnectionModal({
                         type="submit"
                         disabled={loading}
                         className={`
-                            w-full mt-4 py-3.5 px-4 rounded-xl font-bold text-sm text-white tracking-wide uppercase
+                            w-full mt-2 py-4 px-6 rounded-xl font-bold text-sm text-white tracking-wide uppercase
                             bg-gradient-to-r from-blue-600 via-blue-500 to-blue-600
-                            hover:shadow-lg hover:shadow-blue-500/20 hover:scale-[1.01]
-                            focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-blue-500
-                            disabled:opacity-50 disabled:cursor-wait disabled:hover:scale-100
-                            transform transition-all duration-200 background-animate bg-[length:200%_auto]
-                            flex items-center justify-center gap-2 group
+                            hover:shadow-[0_0_20px_rgba(59,130,246,0.4)] hover:scale-[1.01]
+                            focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#0c1218] focus:ring-blue-500
+                            disabled:opacity-50 disabled:cursor-wait disabled:hover:scale-100 disabled:hover:shadow-none
+                            transform transition-all duration-200 bg-[length:200%_auto]
+                            flex items-center justify-center gap-2 group border border-white/10
                         `}
                         style={{
                             backgroundSize: '200% auto',
@@ -184,27 +201,30 @@ export default function ConnectionModal({
                     >
                         {loading ? (
                             <>
-                                <svg className="animate-spin h-4 w-4 text-white/80" viewBox="0 0 24 24">
+                                <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24">
                                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                 </svg>
-                                <span className="text-white/80">Connecting...</span>
+                                <span className="text-white">Establishing Link...</span>
                             </>
                         ) : (
                             <>
-                                Initialize System
-                                <svg className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                                Initialize Connection
+                                <svg className="w-4 h-4 transform group-hover:translate-x-1 transition-transform opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
                             </>
                         )}
                     </button>
                 </form>
 
-                {/* Footer decorations */}
-                <div className="mt-6 text-center">
-                    <div className="flex items-center justify-center gap-2 opacity-30">
-                        <div className="h-1 w-1 rounded-full bg-white"></div>
-                        <div className="h-1 w-1 rounded-full bg-white"></div>
-                        <div className="h-1 w-1 rounded-full bg-white"></div>
+                {/* Footer status indicators */}
+                <div className="mt-8 flex items-center justify-center gap-6 opacity-30">
+                    <div className="flex items-center gap-1.5" title="Secure Connection">
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+                        <span className="text-[10px] font-mono text-emerald-500">SECURE</span>
+                    </div>
+                    <div className="flex items-center gap-1.5" title="Low Latency">
+                        <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
+                        <span className="text-[10px] font-mono text-blue-500">READY</span>
                     </div>
                 </div>
             </div>

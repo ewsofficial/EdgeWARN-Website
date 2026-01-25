@@ -33,6 +33,7 @@ import {
     UNCERTAINTY_CONE_STYLE,
     TRACK_LINE_STYLE,
 } from './constants';
+import { generateConePolygon } from '@/utils/geo';
 
 export default function LeafletMap() {
     // Use custom hook for connection state and handlers
@@ -325,43 +326,67 @@ export default function LeafletMap() {
                             // eslint-disable-next-line @typescript-eslint/no-explicit-any
                             const stormCastData = ((modules as any)["StormCast"] || (modules as any)["stormcast"]) as any;
                             if (stormCastData && stormCastData.forecast_cones && Array.isArray(stormCastData.forecast_cones)) {
-                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                stormCastData.forecast_cones.forEach((cone: any) => {
-                                    // Check if valid
-                                    const validCenter = cone.center && Array.isArray(cone.center) && cone.center.length === 2;
-                                    const validRadius = typeof cone.radius === 'number';
+                                    // Preparing data for polygon generation
+                                    const forecastPoints: { lat: number, lon: number, radius: number }[] = [];
+                                    const uncertaintyPoints: { lat: number, lon: number, radius: number }[] = [];
 
-                                    if (validCenter && validRadius) {
-                                        // Normalize longitude if needed (0-360 -> -180-180)
-                                        const cLat = cone.center[0];
-                                        let cLon = cone.center[1];
-                                        if (cLon > 180) cLon -= 360;
+                                    stormCastData.forecast_cones.forEach((cone: any) => {
+                                        const validCenter = cone.center && Array.isArray(cone.center) && cone.center.length === 2 
+                                            && Number.isFinite(cone.center[0]) && Number.isFinite(cone.center[1]);
+                                        const validRadius = typeof cone.radius === 'number' && Number.isFinite(cone.radius);
 
-                                        // Radius is already in meters
-                                        const radiusMeters = cone.radius;
+                                        if (validCenter && validRadius) {
+                                            const cLat = cone.center[0];
+                                            let cLon = cone.center[1];
+                                            if (cLon > 180) cLon -= 360;
 
-                                        // Plot uncertainty cone first (behind the main cone)
-                                        // Uncertainty can be provided as uncertainty_radius, uncertainty, or as radius_max
-                                        const uncertainty = cone.uncertainty_radius || cone.uncertainty || cone.radius_max;
-                                        if (typeof uncertainty === 'number' && uncertainty > cone.radius) {
-                                            const uncertaintyRadiusMeters = uncertainty;
-                                            const uncertaintyCone = L.circle([cLat, cLon], {
-                                                radius: uncertaintyRadiusMeters,
-                                                ...UNCERTAINTY_CONE_STYLE
-                                            });
-                                            uncertaintyCone.addTo(layerGroup);
+                                            forecastPoints.push({ lat: cLat, lon: cLon, radius: cone.radius });
+
+                                            const uncertainty = cone.uncertainty_radius || cone.uncertainty || cone.radius_max;
+                                            if (typeof uncertainty === 'number' && Number.isFinite(uncertainty) && uncertainty > cone.radius) {
+                                                uncertaintyPoints.push({ lat: cLat, lon: cLon, radius: uncertainty });
+                                            } else {
+                                                // Fallback if no specific uncertainty, use radius
+                                                uncertaintyPoints.push({ lat: cLat, lon: cLon, radius: cone.radius });
+                                            }
                                         }
+                                    });
 
-                                        // Main forecast cone (Storm Size / Center)
-                                        const forecastCone = L.circle([cLat, cLon], {
-                                            radius: radiusMeters,
-                                            ...FORECAST_CONE_STYLE
-                                        });
-                                        forecastCone.addTo(layerGroup);
-                                    } else {
-                                        // console.warn("Invalid cone data:", cone);
+                                    // Generate and render polygons
+                                    if (uncertaintyPoints.length > 1) {
+                                        try {
+                                            const polyPoints = generateConePolygon(uncertaintyPoints);
+                                            // Validate points - ensure no NaN
+                                            const validPolyPoints = polyPoints.filter(p => Number.isFinite(p[0]) && Number.isFinite(p[1]));
+                                            
+                                            if (validPolyPoints.length > 2) {
+                                                const uncertaintyLayer = L.polygon(validPolyPoints, {
+                                                    ...UNCERTAINTY_CONE_STYLE,
+                                                    lineJoin: 'round'
+                                                });
+                                                uncertaintyLayer.addTo(layerGroup);
+                                            }
+                                        } catch (err) {
+                                            console.warn("Failed to generate uncertainty cone polygon", err);
+                                        }
                                     }
-                                });
+
+                                    if (forecastPoints.length > 1) {
+                                        try {
+                                            const polyPoints = generateConePolygon(forecastPoints);
+                                            const validPolyPoints = polyPoints.filter(p => Number.isFinite(p[0]) && Number.isFinite(p[1]));
+
+                                            if (validPolyPoints.length > 2) {
+                                                const forecastLayer = L.polygon(validPolyPoints, {
+                                                    ...FORECAST_CONE_STYLE,
+                                                    lineJoin: 'round'
+                                                });
+                                                forecastLayer.addTo(layerGroup);
+                                            }
+                                        } catch (err) {
+                                            console.warn("Failed to generate forecast cone polygon", err);
+                                        }
+                                    }
 
                                 // Draw Track Line (connecting centers)
                                 // Start with current storm center

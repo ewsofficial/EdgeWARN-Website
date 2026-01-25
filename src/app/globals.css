@@ -752,3 +752,32 @@ body {
   font-weight: 600;
   margin-right: 4px;
 }
+
+/* StormCast Styles */
+.stormcast-prob-cone {
+  filter: drop-shadow(0 0 8px rgba(255, 237, 213, 0.4));
+  transition: all 0.3s ease;
+  animation: pulse-cone 4s infinite ease-in-out;
+}
+
+.stormcast-forecast-circle {
+  filter: drop-shadow(0 0 5px rgba(234, 88, 12, 0.6));
+  stroke-dasharray: 4, 4;
+}
+
+.stormcast-track-line {
+  filter: drop-shadow(0 0 6px rgba(234, 88, 12, 0.8));
+  animation: dash-move 20s linear infinite;
+}
+
+@keyframes pulse-cone {
+  0% { opacity: 0.6; }
+  50% { opacity: 0.8; }
+  100% { opacity: 0.6; }
+}
+
+@keyframes dash-move {
+  to {
+    stroke-dashoffset: -100;
+  }
+}

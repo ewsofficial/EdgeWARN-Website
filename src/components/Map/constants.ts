@@ -56,8 +56,9 @@ export const FORECAST_CONE_STYLE = {
     color: "#ea580c", // orange-600 (darker for contrast)
     weight: 2,
     fillOpacity: 0, // No fill, just outline for the specific radius
-    dashArray: '3, 3', // Dashed to distinguish from uncertainty
+    dashArray: '4, 4', // Dashed to distinguish from uncertainty
     interactive: false,
+    className: 'stormcast-forecast-circle',
 };
 
 // StormCast uncertainty cone style - The "Cone" area
@@ -68,6 +69,7 @@ export const UNCERTAINTY_CONE_STYLE = {
     fillColor: "#fff7ed", // orange-50 (even lighter/white-ish)
     fillOpacity: 0.35, // Semi-transparent "glassy" look
     interactive: false,
+    className: 'stormcast-prob-cone',
 };
 
 // StormCast Track Line Style
@@ -76,6 +78,7 @@ export const TRACK_LINE_STYLE = {
     weight: 3,
     dashArray: '',
     interactive: false,
+    className: 'stormcast-track-line',
 };
 
 // SPC Day 1 Outlook Colors (Categorical)
