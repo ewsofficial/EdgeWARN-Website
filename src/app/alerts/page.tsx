@@ -1,12 +1,20 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
+import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Clock, AlertTriangle, Shield, Info, Map as MapIcon, Calendar } from 'lucide-react';
+import { Virtuoso } from 'react-virtuoso';
+import { ArrowLeft, Clock, AlertTriangle, Shield, Info, Map as MapIcon, Calendar, Layers } from 'lucide-react';
 import { EdgeWARNAPI } from '@/utils/edgewarn-api';
 import { NWSData, NWSAlertFeature } from '@/types';
 import { getLastUsedEndpoint } from '@/utils/endpoint-cache';
+import AlertDetailsModal from '@/components/UI/AlertDetailsModal';
+
+const AlertMap = dynamic(() => import('@/components/Map/AlertMap'), { 
+    ssr: false,
+    loading: () => <div className="w-full h-full bg-slate-900 animate-pulse" />
+});
 
 // Helper for severity colors (matching the map)
 const getSeverityColor = (severity: string) => {
@@ -31,43 +39,68 @@ export default function AlertsPage() {
     const [data, setData] = useState<NWSData | null>(null);
     const [currentTimestamp, setCurrentTimestamp] = useState<string | null>(null);
     const [selectedSeverity, setSelectedSeverity] = useState<string>('All');
+    const [ewmrsUrl, setEwmrsUrl] = useState<string>('http://localhost:3003');
+    const [selectedAlert, setSelectedAlert] = useState<NWSAlertFeature | null>(null);
+    const lastFetchedTsRef = useRef<string | null>(null);
 
     useEffect(() => {
         // Initialize API
         if (!apiRef.current) {
             const cached = getLastUsedEndpoint();
             const baseUrl = cached?.apiUrl || 'http://localhost:5000';
+            const ewmrs = cached?.ewmrsUrl || 'http://localhost:3003';
+            setEwmrsUrl(ewmrs);
             apiRef.current = new EdgeWARNAPI(baseUrl);
         }
 
         const fetchData = async () => {
-            setLoading(true);
+            if (!data) setLoading(true);
             setError(null);
             try {
                 let targetTs = timestampParam;
+                // Optimization: Only fetch if strictly necessary
+                let shouldFetch = true;
 
                 if (!targetTs || targetTs === 'latest') {
                     // Fetch latest
                     const timestamps = await apiRef.current!.fetchNWSTimestamps();
                     if (timestamps.length > 0) {
-                        targetTs = timestamps.sort().pop()!;
+                        const latest = timestamps.sort().pop()!;
+                        targetTs = latest;
+                        if (targetTs === lastFetchedTsRef.current) {
+                            shouldFetch = false;
+                        }
                     } else {
                         throw new Error("No NWS data available");
                     }
+                } else {
+                    // Specific timestamp
+                   if (targetTs === lastFetchedTsRef.current) {
+                        shouldFetch = false;
+                   }
                 }
 
-                setCurrentTimestamp(targetTs);
-                const result = await apiRef.current!.downloadNWS(targetTs!);
-                setData(result);
+                if (shouldFetch && targetTs) {
+                    setCurrentTimestamp(targetTs);
+                    const result = await apiRef.current!.downloadNWS(targetTs);
+                    setData(result);
+                    lastFetchedTsRef.current = targetTs;
+                }
             } catch (err) {
                 console.error("Failed to load alerts", err);
-                setError(err instanceof Error ? err.message : "Failed to load alerts");
+                // Only show error text if we don't have data, otherwise just log it (silent fail on refresh)
+                if (!data) setError(err instanceof Error ? err.message : "Failed to load alerts");
             } finally {
                 setLoading(false);
             }
         };
 
         fetchData();
+
+        if (!timestampParam || timestampParam === 'latest') {
+            const interval = setInterval(fetchData, 30000);
+            return () => clearInterval(interval);
+        }
     }, [timestampParam]);
 
     const formatTime = (iso: string) => {
@@ -146,84 +179,108 @@ export default function AlertsPage() {
                         <p className="text-lg">No active alerts found matching filter.</p>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 gap-4">
-                        {filteredFeatures.map((feature: NWSAlertFeature, idx: number) => {
+                    <Virtuoso
+                        useWindowScroll
+                        data={filteredFeatures}
+                        itemContent={(index, feature) => {
                             const props = feature.properties;
                             const colors = getSeverityColor(props.severity);
                             
                             return (
-                                <div 
-                                    key={feature.id || idx}
-                                    className={`relative overflow-hidden rounded-xl border ${colors.border} ${colors.bg} backdrop-blur-sm transition-transform hover:scale-[1.01] duration-200`}
-                                >
-                                    <div className="p-5 flex flex-col md:flex-row gap-6">
-                                        
-                                        {/* Left: Severity & Icon */}
-                                        <div className="flex-shrink-0 flex md:flex-col items-center gap-3 md:w-32 md:border-r border-white/10 pr-0 md:pr-6">
-                                            <div className={`${colors.badge} w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg`}>
-                                                <AlertTriangle className="w-8 h-8 text-white" />
-                                            </div>
-                                            <div className={`font-bold text-lg ${colors.text} text-center`}>
-                                                {props.severity}
-                                            </div>
-                                            <div className="text-xs text-slate-400 uppercase tracking-wider font-semibold">
-                                                Severity
-                                            </div>
-                                        </div>
-
-                                        {/* Right: Details */}
-                                        <div className="flex-grow space-y-4">
-                                            <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-2">
-                                                <div>
-                                                    <h2 className="text-2xl font-bold text-white mb-1">{props.event}</h2>
-                                                    <p className="text-slate-400 text-sm flex items-center gap-1">
-                                                        <Info className="w-4 h-4" /> 
-                                                        {props.headline}
-                                                    </p>
+                                <div className="pb-4">
+                                    <div 
+                                        onClick={() => setSelectedAlert(feature)}
+                                        className={`relative overflow-hidden rounded-xl border ${colors.border} ${colors.bg} backdrop-blur-sm transition-transform hover:scale-[1.005] duration-200 cursor-pointer`}
+                                    >
+                                        <div className="p-5 flex flex-col md:flex-row gap-6">
+                                            
+                                            {/* Left: Severity & Icon */}
+                                            <div className="flex-shrink-0 flex md:flex-col items-center gap-3 md:w-32 md:border-r border-white/10 pr-0 md:pr-6">
+                                                <div className={`${colors.badge} w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg`}>
+                                                    <AlertTriangle className="w-8 h-8 text-white" />
                                                 </div>
-                                                <div className="flex flex-wrap gap-2">
-                                                     <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-mono text-slate-300">
-                                                        {props.status}
-                                                     </span>
-                                                     <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-mono text-slate-300">
-                                                        {props.urgency}
-                                                     </span>
+                                                <div className={`font-bold text-lg ${colors.text} text-center`}>
+                                                    {props.severity}
+                                                </div>
+                                                <div className="text-xs text-slate-400 uppercase tracking-wider font-semibold">
+                                                    Severity
                                                 </div>
                                             </div>
 
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-black/20 rounded-lg p-4 text-sm">
-                                                <div className="space-y-1">
-                                                    <span className="text-slate-500 uppercase text-xs font-bold block">Effective</span>
-                                                    <span className="text-white font-medium flex items-center gap-2">
-                                                        <Calendar className="w-4 h-4 text-green-400" />
-                                                        {formatTime(props.effective)}
-                                                    </span>
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <span className="text-slate-500 uppercase text-xs font-bold block">Expires</span>
-                                                    <span className="text-white font-medium flex items-center gap-2">
-                                                        <Calendar className="w-4 h-4 text-red-400" />
-                                                        {formatTime(props.expires)}
-                                                    </span>
-                                                </div>
-                                                <div className="md:col-span-2 space-y-1 pt-2 border-t border-white/5">
-                                                    <span className="text-slate-500 uppercase text-xs font-bold block">Affected Areas</span>
-                                                    <div className="text-slate-300 leading-relaxed">
-                                                        <MapIcon className="w-4 h-4 inline mr-2 text-blue-400" />
-                                                        {props.areaDesc}
+                                            {/* Right: Details */}
+                                            <div className="flex-grow space-y-4">
+                                                <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-2">
+                                                    <div>
+                                                        <h2 className="text-2xl font-bold text-white mb-1">{props.event}</h2>
+                                                        <p className="text-slate-400 text-sm flex items-center gap-1">
+                                                            <Info className="w-4 h-4" /> 
+                                                            {props.headline}
+                                                        </p>
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-2">
+                                                         <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-mono text-slate-300">
+                                                            {props.status}
+                                                         </span>
+                                                         <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-mono text-slate-300">
+                                                            {props.urgency}
+                                                         </span>
                                                     </div>
                                                 </div>
+
+                                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                                    <div className="space-y-4">
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-black/20 rounded-lg p-4 text-sm h-fit">
+                                                            <div className="space-y-1">
+                                                                <span className="text-slate-500 uppercase text-xs font-bold block">Effective</span>
+                                                                <span className="text-white font-medium flex items-center gap-2">
+                                                                    <Calendar className="w-4 h-4 text-green-400" />
+                                                                    {formatTime(props.effective)}
+                                                                </span>
+                                                            </div>
+                                                            <div className="space-y-1">
+                                                                <span className="text-slate-500 uppercase text-xs font-bold block">Expires</span>
+                                                                <span className="text-white font-medium flex items-center gap-2">
+                                                                    <Calendar className="w-4 h-4 text-red-400" />
+                                                                    {formatTime(props.expires)}
+                                                                </span>
+                                                            </div>
+                                                            <div className="md:col-span-2 space-y-1 pt-2 border-t border-white/5">
+                                                                <span className="text-slate-500 uppercase text-xs font-bold block">Affected Areas</span>
+                                                                <div className="text-slate-300 leading-relaxed max-h-[100px] overflow-y-auto custom-scrollbar">
+                                                                    <MapIcon className="w-4 h-4 inline mr-2 text-blue-400" />
+                                                                    {props.areaDesc}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    {/* Map Section */}
+                                                <div 
+                                                    className="h-48 lg:h-auto min-h-[200px] rounded-lg overflow-hidden border border-white/10 relative z-0 shadow-inner bg-black/40"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    <AlertMap 
+                                                        feature={feature} 
+                                                        currentTimestamp={currentTimestamp} 
+                                                        ewmrsUrl={ewmrsUrl}
+                                                    />
+                                                </div>
+                                                </div>
                                             </div>
-                                            
-                                            {/* Instructions/Description would go here if enabled, currently just summary */}
                                         </div>
                                     </div>
                                 </div>
                             );
-                        })}
-                    </div>
+                        }}
+                    />
                 )}
             </div>
+
+            <AlertDetailsModal 
+                isOpen={!!selectedAlert} 
+                feature={selectedAlert} 
+                onClose={() => setSelectedAlert(null)} 
+            />
         </div>
     );
 }

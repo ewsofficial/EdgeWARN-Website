@@ -121,3 +121,28 @@ export const WPC_STYLE = {
     STATIONARY_FRONT: { color: '#FF0000', weight: 3, dashArray: '10, 10' }, // Simplified
     TROUGH: { color: '#FFA500', weight: 2, dashArray: '5, 5' },
 };
+
+// NWS Severity Colors
+export const SEVERITY_COLORS: Record<string, { bg: string; border: string; dot: string }> = {
+    'Extreme': { bg: '#7c2d12', border: '#ea580c', dot: '#f97316' },
+    'Severe': { bg: '#7f1d1d', border: '#dc2626', dot: '#ef4444' },
+    'Moderate': { bg: '#78350f', border: '#d97706', dot: '#f59e0b' },
+    'Minor': { bg: '#1e3a5f', border: '#3b82f6', dot: '#60a5fa' },
+    'Unknown': { bg: '#374151', border: '#6b7280', dot: '#9ca3af' },
+};
+
+/**
+ * Get color scheme for NWS alerts based on event type and severity
+ */
+export const getEventColors = (event: string, severity: string) => {
+    const e = event.toLowerCase();
+    if (e.includes('tornado')) return { bg: '#450a0a', border: '#ef4444', dot: '#ff0000' }; // Bright Red
+    if (e.includes('thunderstorm')) return { bg: '#451a03', border: '#f97316', dot: '#ffa500' }; // Orange
+    if (e.includes('winter') || e.includes('snow') || e.includes('blizzard')) return { bg: '#172554', border: '#3b82f6', dot: '#0000ff' }; // Blue
+    if (e.includes('flash flood')) return { bg: '#450a0a', border: '#dc2626', dot: '#8b0000' }; // Maroon
+    if (e.includes('flood')) return { bg: '#064e3b', border: '#10b981', dot: '#00ff00' }; // Lime
+    if (e.includes('marine')) return { bg: '#3f2b10', border: '#eab308', dot: '#ffd700' }; // Gold
+
+    // Fallback to severity
+    return SEVERITY_COLORS[severity] || SEVERITY_COLORS['Unknown'];
+};
