@@ -6,11 +6,10 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Virtuoso } from 'react-virtuoso';
 import { ArrowLeft, Clock, AlertTriangle, Shield, Info, Map as MapIcon, Calendar, Layers } from 'lucide-react';
-import { EdgeWARNAPI } from '@/utils/edgewarn-api';
 import { NWSData, NWSAlertFeature } from '@/types';
-import { getLastUsedEndpoint } from '@/utils/endpoint-cache';
 import AlertDetailsModal from '@/components/UI/AlertDetailsModal';
 import { getSeverityClasses } from '@/utils/styling';
+import { useMapContext } from '@/components/Map/context/MapContext';
 
 const AlertMap = dynamic(() => import('@/components/Map/AlertMap'), { 
     ssr: false,
@@ -32,15 +31,13 @@ function AlertsContent() {
     const searchParams = useSearchParams();
     const timestampParam = searchParams.get('timestamp');
     
-    // API Ref matching other components
-    const apiRef = useRef<EdgeWARNAPI | null>(null);
+    const { apiRef, isConnected, ewmrsUrl } = useMapContext();
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [data, setData] = useState<NWSData | null>(null);
     const [currentTimestamp, setCurrentTimestamp] = useState<string | null>(null);
     const [selectedSeverity, setSelectedSeverity] = useState<string>('All');
-    const [ewmrsUrl, setEwmrsUrl] = useState<string>('http://localhost:3003');
     const [selectedAlert, setSelectedAlert] = useState<NWSAlertFeature | null>(null);
     const [visibleCount, setVisibleCount] = useState(5);
     const lastFetchedTsRef = useRef<string | null>(null);
@@ -50,16 +47,12 @@ function AlertsContent() {
     }, [selectedSeverity, currentTimestamp, data]);
 
     useEffect(() => {
-        // Initialize API
-        if (!apiRef.current) {
-            const cached = getLastUsedEndpoint();
-            const baseUrl = cached?.apiUrl || 'http://localhost:5000';
-            const ewmrs = cached?.ewmrsUrl || 'http://localhost:3003';
-            setEwmrsUrl(ewmrs);
-            apiRef.current = new EdgeWARNAPI(baseUrl);
-        }
+        // Connection handled by GlobalConnectionManager / MapContext
+
 
         const fetchData = async () => {
+            if (!isConnected || !apiRef.current) return;
+
             if (!data) setLoading(true);
             setError(null);
             try {
@@ -112,13 +105,13 @@ function AlertsContent() {
             }
         };
 
-        fetchData();
+        if (isConnected) fetchData();
 
         if (!timestampParam || timestampParam === 'latest') {
             const interval = setInterval(fetchData, 30000);
             return () => clearInterval(interval);
         }
-    }, [timestampParam]);
+    }, [timestampParam, isConnected]);
 
     const formatTime = (iso: string) => {
         try {

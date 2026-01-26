@@ -4,22 +4,22 @@ import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Map as MapIcon, Wifi, List, Settings, AlertTriangle } from 'lucide-react';
 import { Cell, NWSAlertFeature } from '@/types';
 import { formatTimeLabel, findClosestTimestamp } from '@/utils/timestamp';
 import SlidebarControl from '../UI/SlidebarControl';
-import { MapToolbar, ToolButton } from '../UI/MapToolbar';
+import { MapToolbar } from '../UI/MapToolbar';
 import { DistanceTool } from '../UI/DistanceTool';
 import { CircleTool } from '../UI/CircleTool';
 import { LocationTool } from '../UI/LocationTool';
 import { TopBar } from './TopBar';
-import ConnectionModal from '../UI/ConnectionModal';
 import MapSettingsPanel from '../UI/MapSettingsPanel';
 import ConnectionSettingsPanel from '../UI/ConnectionSettingsPanel';
 import CellListPanel from '../UI/CellListPanel';
 import AlertListPanel from '../UI/AlertListPanel';
 import ColormapLegend from '../UI/ColormapLegend';
-import { useMapConnection } from './hooks';
+import { useMapContext } from './context/MapContext';
 import { useSPCLayer } from './hooks/useSPCLayer';
 import { useMETARLayer } from './hooks/useMETARLayer';
 import { useNWSLayer } from './hooks/useNWSLayer';
@@ -27,10 +27,7 @@ import { useWPCLayer } from './hooks/useWPCLayer';
 import { useWPCEroLayer } from './hooks/useWPCEroLayer';
 import { useWSSILayer } from './hooks/useWSSILayer';
 import {
-    DEFAULT_BOUNDS,
-    DEFAULT_MAP_CONFIG,
     PRODUCT_TO_COLORMAP_TYPE,
-    CELL_POLYGON_STYLE,
     FORECAST_CONE_STYLE,
     UNCERTAINTY_CONE_STYLE,
     TRACK_LINE_STYLE,
@@ -60,7 +57,7 @@ export default function LeafletMap() {
         isFlashing,
         setIsFlashing,
         handleConnect,
-    } = useMapConnection();
+    } = useMapContext();
 
     // Map refs
     const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -88,6 +85,12 @@ export default function LeafletMap() {
     const [alertToZoom, setAlertToZoom] = useState<string | null>(null);
     const [activePanel, setActivePanel] = useState<'map' | 'connection' | 'list' | 'settings' | 'alerts' | null>(null);
     const [selectedCellInfo, setSelectedCellInfo] = useState<string | null>(null);
+    const [focusedCellId, setFocusedCellId] = useState<string | number | null>(null);
+
+    const handleClosePopup = useCallback(() => {
+        setSelectedCellInfo(null);
+        setFocusedCellId(null);
+    }, []);
 
     // WPC ERO State
     const [showWpcEroDay1, setShowWpcEroDay1] = useState(false);
@@ -191,6 +194,7 @@ export default function LeafletMap() {
 
     useWPCLayer({
         map: mapInstance,
+        // eslint-disable-next-line
         ewmrsApi: ewmrsRef.current,
         showWpc
     });
@@ -303,6 +307,156 @@ export default function LeafletMap() {
         }
     }, [showBounds]);
 
+    // Render Storm Cells (and optionally StormCast cones if focused)
+    useEffect(() => {
+        const map = mapInstanceRef.current;
+        if (!map) return;
+
+        // Cleanup old layer
+        if (currentLayerRef.current) {
+            map.removeLayer(currentLayerRef.current);
+            currentLayerRef.current = null;
+        }
+
+        if (currentCells.length === 0) return;
+
+        const layerGroup = L.featureGroup();
+        const polyStyle = {
+            color: "#f87171", // red-400
+            weight: 2,
+            opacity: 1,
+            fillOpacity: 0.3
+        };
+
+        currentCells.forEach((cell: Cell) => {
+            if (cell.bbox && Array.isArray(cell.bbox) && cell.bbox.length > 0) {
+                const coords: L.LatLngExpression[] = cell.bbox.map((p: number[]) => {
+                    const val1 = p[0];
+                    const val2 = p[1];
+                    let lat, lon;
+                    if (Math.abs(val1) > 90) {
+                        lon = val1; lat = val2;
+                    } else {
+                        lat = val1; lon = val2;
+                    }
+                    if (lon > 180) lon -= 360;
+                    return [lat, lon] as [number, number];
+                });
+
+                const polygon = L.polygon(coords, polyStyle);
+
+                // Modules
+                const modules = cell.modules || (cell.properties?.['modules'] as Record<string, unknown> | undefined);
+
+                if (cell.properties) {
+                    polygon.on('click', (e) => {
+                        L.DomEvent.stopPropagation(e); // Prevent map click?
+                        const props = { ...cell.properties, id: cell.id, modules };
+                        setSelectedCellInfo(JSON.stringify(props, null, 2));
+                        setFocusedCellId(cell.id);
+                    });
+
+                    // Render StormCast Forecast Cones ONLY if focused
+                    if (modules && cell.id === focusedCellId) {
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        const stormCastData = ((modules as any)["StormCast"] || (modules as any)["stormcast"]) as any;
+                        if (stormCastData && stormCastData.forecast_cones && Array.isArray(stormCastData.forecast_cones)) {
+                            // Preparing data for polygon generation
+                            const forecastPoints: { lat: number, lon: number, radius: number }[] = [];
+                            const uncertaintyPoints: { lat: number, lon: number, radius: number }[] = [];
+
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            stormCastData.forecast_cones.forEach((cone: any) => {
+                                const validCenter = cone.center && Array.isArray(cone.center) && cone.center.length === 2
+                                    && Number.isFinite(cone.center[0]) && Number.isFinite(cone.center[1]);
+                                const validRadius = typeof cone.radius === 'number' && Number.isFinite(cone.radius);
+
+                                if (validCenter && validRadius) {
+                                    const cLat = cone.center[0];
+                                    let cLon = cone.center[1];
+                                    if (cLon > 180) cLon -= 360;
+
+                                    forecastPoints.push({ lat: cLat, lon: cLon, radius: cone.radius });
+
+                                    const uncertainty = cone.uncertainty_radius || cone.uncertainty || cone.radius_max;
+                                    if (typeof uncertainty === 'number' && Number.isFinite(uncertainty) && uncertainty > cone.radius) {
+                                        uncertaintyPoints.push({ lat: cLat, lon: cLon, radius: uncertainty });
+                                    } else {
+                                        uncertaintyPoints.push({ lat: cLat, lon: cLon, radius: cone.radius });
+                                    }
+                                }
+                            });
+
+                            // Generate and render polygons
+                            if (uncertaintyPoints.length > 1) {
+                                try {
+                                    const polyPoints = generateConePolygon(uncertaintyPoints);
+                                    const validPolyPoints = polyPoints.filter(p => Number.isFinite(p[0]) && Number.isFinite(p[1]));
+
+                                    if (validPolyPoints.length > 2) {
+                                        const uncertaintyLayer = L.polygon(validPolyPoints, {
+                                            ...UNCERTAINTY_CONE_STYLE,
+                                            lineJoin: 'round'
+                                        });
+                                        uncertaintyLayer.addTo(layerGroup);
+                                    }
+                                } catch (err) {
+                                    console.warn("Failed to generate uncertainty cone polygon", err);
+                                }
+                            }
+
+                            if (forecastPoints.length > 1) {
+                                try {
+                                    const polyPoints = generateConePolygon(forecastPoints);
+                                    const validPolyPoints = polyPoints.filter(p => Number.isFinite(p[0]) && Number.isFinite(p[1]));
+
+                                    if (validPolyPoints.length > 2) {
+                                        const forecastLayer = L.polygon(validPolyPoints, {
+                                            ...FORECAST_CONE_STYLE,
+                                            lineJoin: 'round'
+                                        });
+                                        forecastLayer.addTo(layerGroup);
+                                    }
+                                } catch (err) {
+                                    console.warn("Failed to generate forecast cone polygon", err);
+                                }
+                            }
+
+                            // Draw Track Line
+                            const trackPoints: L.LatLngExpression[] = [];
+                            try {
+                                const cellBounds = L.latLngBounds(coords);
+                                const cellCenter = cellBounds.getCenter();
+                                trackPoints.push([cellCenter.lat, cellCenter.lng]);
+                            } catch { }
+
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            stormCastData.forecast_cones.forEach((cone: any) => {
+                                if (cone.center && Array.isArray(cone.center) && cone.center.length === 2) {
+                                    const cLat = cone.center[0];
+                                    let cLon = cone.center[1];
+                                    if (cLon > 180) cLon -= 360;
+                                    trackPoints.push([cLat, cLon]);
+                                }
+                            });
+
+                            if (trackPoints.length > 1) {
+                                const trackLine = L.polyline(trackPoints, TRACK_LINE_STYLE);
+                                trackLine.addTo(layerGroup);
+                                trackLine.bringToFront();
+                            }
+                        }
+                    }
+                }
+                polygon.addTo(layerGroup);
+            }
+        });
+
+        layerGroup.addTo(map);
+        currentLayerRef.current = layerGroup;
+
+    }, [currentCells, focusedCellId]); // Re-run when focus changes
+
     // Handle SPC Outlook Layer
 
     // Effect for METAR
@@ -326,7 +480,7 @@ export default function LeafletMap() {
             }
 
             const data = await apiRef.current.downloadStormcellList(ts);
-            const layerGroup = L.featureGroup();
+
 
             let features: Cell[] = [];
             if ('content' in data && data.content && data.content.features) features = data.content.features;
@@ -338,151 +492,6 @@ export default function LeafletMap() {
                 cell.bbox && Array.isArray(cell.bbox) && cell.bbox.length > 0
             );
             setCurrentCells(visibleFeatures);
-
-            const polyStyle = {
-                color: "#f87171", // red-400
-                weight: 2,
-                opacity: 1,
-                fillOpacity: 0.3
-            };
-
-            features.forEach((cell: Cell) => {
-                if (cell.bbox && Array.isArray(cell.bbox) && cell.bbox.length > 0) {
-                    const coords: L.LatLngExpression[] = cell.bbox.map((p: number[]) => {
-                        const val1 = p[0];
-                        const val2 = p[1];
-                        let lat, lon;
-                        if (Math.abs(val1) > 90) {
-                            lon = val1; lat = val2;
-                        } else {
-                            lat = val1; lon = val2;
-                        }
-                        if (lon > 180) lon -= 360;
-                        return [lat, lon] as [number, number];
-                    });
-
-                    const polygon = L.polygon(coords, polyStyle);
-
-                    // Helper to get modules from either root or properties
-                    // Use bracket notation for Record types or explicit cast if needed.
-                    // Since properties is Record<string, unknown>, we cast appropriately or use bracket notation.
-                    const modules = cell.modules || (cell.properties?.['modules'] as Record<string, unknown> | undefined);
-
-                    // Debugging StormCast Data
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    if (modules && ((modules as any)["StormCast"] || (modules as any)["stormcast"])) {
-                        // console.log(`Cell ${cell.id} has StormCast module`, modules["StormCast"] || modules["stormcast"]);
-                    }
-
-                    if (cell.properties) {
-                        polygon.on('click', () => {
-                            const props = { ...cell.properties, id: cell.id, modules };
-                            setSelectedCellInfo(JSON.stringify(props, null, 2));
-                        });
-
-                        // Render StormCast Forecast Cones with Uncertainty
-                        if (modules) {
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            const stormCastData = ((modules as any)["StormCast"] || (modules as any)["stormcast"]) as any;
-                            if (stormCastData && stormCastData.forecast_cones && Array.isArray(stormCastData.forecast_cones)) {
-                                    // Preparing data for polygon generation
-                                    const forecastPoints: { lat: number, lon: number, radius: number }[] = [];
-                                    const uncertaintyPoints: { lat: number, lon: number, radius: number }[] = [];
-
-                                    stormCastData.forecast_cones.forEach((cone: any) => {
-                                        const validCenter = cone.center && Array.isArray(cone.center) && cone.center.length === 2 
-                                            && Number.isFinite(cone.center[0]) && Number.isFinite(cone.center[1]);
-                                        const validRadius = typeof cone.radius === 'number' && Number.isFinite(cone.radius);
-
-                                        if (validCenter && validRadius) {
-                                            const cLat = cone.center[0];
-                                            let cLon = cone.center[1];
-                                            if (cLon > 180) cLon -= 360;
-
-                                            forecastPoints.push({ lat: cLat, lon: cLon, radius: cone.radius });
-
-                                            const uncertainty = cone.uncertainty_radius || cone.uncertainty || cone.radius_max;
-                                            if (typeof uncertainty === 'number' && Number.isFinite(uncertainty) && uncertainty > cone.radius) {
-                                                uncertaintyPoints.push({ lat: cLat, lon: cLon, radius: uncertainty });
-                                            } else {
-                                                // Fallback if no specific uncertainty, use radius
-                                                uncertaintyPoints.push({ lat: cLat, lon: cLon, radius: cone.radius });
-                                            }
-                                        }
-                                    });
-
-                                    // Generate and render polygons
-                                    if (uncertaintyPoints.length > 1) {
-                                        try {
-                                            const polyPoints = generateConePolygon(uncertaintyPoints);
-                                            // Validate points - ensure no NaN
-                                            const validPolyPoints = polyPoints.filter(p => Number.isFinite(p[0]) && Number.isFinite(p[1]));
-                                            
-                                            if (validPolyPoints.length > 2) {
-                                                const uncertaintyLayer = L.polygon(validPolyPoints, {
-                                                    ...UNCERTAINTY_CONE_STYLE,
-                                                    lineJoin: 'round'
-                                                });
-                                                uncertaintyLayer.addTo(layerGroup);
-                                            }
-                                        } catch (err) {
-                                            console.warn("Failed to generate uncertainty cone polygon", err);
-                                        }
-                                    }
-
-                                    if (forecastPoints.length > 1) {
-                                        try {
-                                            const polyPoints = generateConePolygon(forecastPoints);
-                                            const validPolyPoints = polyPoints.filter(p => Number.isFinite(p[0]) && Number.isFinite(p[1]));
-
-                                            if (validPolyPoints.length > 2) {
-                                                const forecastLayer = L.polygon(validPolyPoints, {
-                                                    ...FORECAST_CONE_STYLE,
-                                                    lineJoin: 'round'
-                                                });
-                                                forecastLayer.addTo(layerGroup);
-                                            }
-                                        } catch (err) {
-                                            console.warn("Failed to generate forecast cone polygon", err);
-                                        }
-                                    }
-
-                                // Draw Track Line (connecting centers)
-                                // Start with current storm center
-                                const trackPoints: L.LatLngExpression[] = [];
-
-                                try {
-                                    const cellBounds = L.latLngBounds(coords);
-                                    const cellCenter = cellBounds.getCenter();
-                                    trackPoints.push([cellCenter.lat, cellCenter.lng]);
-                                } catch (e) {
-                                    // Fallback if bounds calculation fails
-                                }
-
-                                // Add forecast centers
-                                stormCastData.forecast_cones.forEach((cone: any) => {
-                                    if (cone.center && Array.isArray(cone.center) && cone.center.length === 2) {
-                                        const cLat = cone.center[0];
-                                        let cLon = cone.center[1];
-                                        if (cLon > 180) cLon -= 360;
-                                        trackPoints.push([cLat, cLon]);
-                                    }
-                                });
-
-                                if (trackPoints.length > 1) {
-                                    const trackLine = L.polyline(trackPoints, TRACK_LINE_STYLE);
-                                    trackLine.addTo(layerGroup);
-                                    trackLine.bringToFront(); // Ensure track is on top of cones
-                                }
-                            }
-                        }
-                    }
-                    polygon.addTo(layerGroup);
-                }
-            });
-
-            layerGroup.addTo(map);
-            currentLayerRef.current = layerGroup;
 
         } catch (err) {
             console.warn(`Error loading cell data for ${ts}:`, err);
@@ -665,7 +674,7 @@ export default function LeafletMap() {
         }, 30000);
 
         return () => clearInterval(interval);
-    }, [isConnected]); // Only depend on isConnected - refs handle the rest
+    }, [isConnected]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Debounce/Listen to slide change
     useEffect(() => {
@@ -694,7 +703,7 @@ export default function LeafletMap() {
             }
         };
         fetchMissingTs();
-    }, [activeLayers, productTimestamps]);
+    }, [activeLayers, productTimestamps]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Playback Logic
     useEffect(() => {
@@ -711,7 +720,7 @@ export default function LeafletMap() {
             }, 1000);
         }
         return () => clearInterval(interval);
-    }, [isPlaying, timestamps.length, isConnected]);
+    }, [isPlaying, timestamps.length, isConnected, setCurrentIndex]);
 
     // Handlers for MapSettingsPanel
     const toggleLayer = (product: string) => {
@@ -772,21 +781,7 @@ export default function LeafletMap() {
 
     // Determine the active colormap based on the primary visible layer
     // Maps product names to colormap types
-    const productToColormapType: Record<string, string> = {
-        'CompRefQC': 'reflectivity',
-        'CompRef': 'reflectivity',
-        'Reflectivity': 'reflectivity',
-        'EchoTops': 'EchoTops',
-        'EnhancedEchoTop': 'EchoTops',
-        'EchoTop18': 'EchoTops',
-        'EchoTop30': 'EchoTops',
-        'PrecipRate': 'PrecipitationRate',
-        'QPE_01H': 'QPE',
-        'QPE_03H': 'QPE',
-        'VIL': 'VILDensity',
-        'VILDensity': 'VILDensity',
-        'VII': 'VILDensity',
-    };
+
 
     const activeColormap = useMemo(() => {
         // Find the first visible layer
@@ -794,7 +789,7 @@ export default function LeafletMap() {
         if (visibleProducts.length === 0 || colormaps.length === 0) return null;
 
         const primaryProduct = visibleProducts[0];
-        const colormapType = productToColormapType[primaryProduct];
+        const colormapType = PRODUCT_TO_COLORMAP_TYPE[primaryProduct as keyof typeof PRODUCT_TO_COLORMAP_TYPE];
 
         // Try to find by type first
         if (colormapType) {
@@ -826,16 +821,7 @@ export default function LeafletMap() {
 
     return (
         <div className="flex bg-gray-900 text-gray-100 h-screen font-sans overflow-hidden">
-            {/* Connection Modal - must be at root level */}
-            <ConnectionModal
-                key={`modal-${apiUrl}-${ewmrsUrl}`}
-                isOpen={!isConnected}
-                loading={loading}
-                error={error}
-                initialApiUrl={apiUrl}
-                initialEwmrsUrl={ewmrsUrl}
-                onConnect={handleConnect}
-            />
+
 
             {/* Styles for pixelated */}
             <style jsx global>{`
@@ -857,7 +843,7 @@ export default function LeafletMap() {
                         {/* Logo Container - Aligned Height with Sidebar Header */}
                         <div className="flex-shrink-0 h-14 flex items-center justify-center border-b border-gray-800">
                             <Link href="/" className="w-8 h-8 flex items-center justify-center opacity-80 hover:opacity-100 transition-opacity cursor-pointer">
-                                <img src="/assets/EdgeWARN.png" alt="EdgeWARN" className="w-full h-full object-contain drop-shadow-md rounded-xl" />
+                                <Image src="/assets/EdgeWARN.png" alt="EdgeWARN" width={32} height={32} className="w-full h-full object-contain drop-shadow-md rounded-xl" />
                             </Link>
                         </div>
 
@@ -1039,7 +1025,7 @@ export default function LeafletMap() {
                     <div className="absolute top-4 right-4 z-[1000] bg-gray-800/90 backdrop-blur border border-gray-600 rounded p-4 max-w-xs shadow-lg text-white">
                         <div className="flex justify-between items-center mb-2">
                             <h3 className="font-bold text-lg text-blue-300">Selected Cell</h3>
-                            <button onClick={() => setSelectedCellInfo(null)} className="text-gray-400 hover:text-white">✕</button>
+                            <button onClick={handleClosePopup} className="text-gray-400 hover:text-white">✕</button>
                         </div>
                         <pre className="text-xs overflow-auto max-h-60 text-gray-300 whitespace-pre-wrap">{selectedCellInfo}</pre>
                     </div>

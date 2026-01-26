@@ -72,14 +72,8 @@ export function useMapConnection(): UseMapConnectionReturn {
     // Flash state
     const [isFlashing, setIsFlashing] = useState(false);
 
-    // Load cached endpoint on mount
-    useEffect(() => {
-        const lastUsed = getLastUsedEndpoint();
-        if (lastUsed) {
-            setApiUrl(lastUsed.apiUrl);
-            setEwmrsUrl(lastUsed.ewmrsUrl);
-        }
-    }, []);
+
+
 
     // Connect handler
     const handleConnect = useCallback(async (overrideApiUrl?: string, overrideEwmrsUrl?: string) => {
@@ -188,6 +182,21 @@ export function useMapConnection(): UseMapConnectionReturn {
             setLoading(false);
         }
     }, [apiUrl, ewmrsUrl]);
+
+    // Load cached endpoint on mount and auto-connect
+    useEffect(() => {
+        const lastUsed = getLastUsedEndpoint();
+        if (lastUsed) {
+            setApiUrl(lastUsed.apiUrl);
+            setEwmrsUrl(lastUsed.ewmrsUrl);
+
+            // Auto-connect (wrapped in timeout to allow state updates to settle)
+            const timer = setTimeout(() => {
+                handleConnect(lastUsed.apiUrl, lastUsed.ewmrsUrl).catch(e => console.error("Auto-connect failed", e));
+            }, 100);
+            return () => clearTimeout(timer);
+        }
+    }, [handleConnect]);
 
     return {
         apiUrl,
