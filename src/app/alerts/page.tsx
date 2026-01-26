@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -10,6 +10,7 @@ import { EdgeWARNAPI } from '@/utils/edgewarn-api';
 import { NWSData, NWSAlertFeature } from '@/types';
 import { getLastUsedEndpoint } from '@/utils/endpoint-cache';
 import AlertDetailsModal from '@/components/UI/AlertDetailsModal';
+import { getSeverityClasses } from '@/utils/styling';
 
 const AlertMap = dynamic(() => import('@/components/Map/AlertMap'), { 
     ssr: false,
@@ -27,7 +28,7 @@ const getSeverityColor = (severity: string) => {
     }
 };
 
-export default function AlertsPage() {
+function AlertsContent() {
     const searchParams = useSearchParams();
     const timestampParam = searchParams.get('timestamp');
     
@@ -41,7 +42,12 @@ export default function AlertsPage() {
     const [selectedSeverity, setSelectedSeverity] = useState<string>('All');
     const [ewmrsUrl, setEwmrsUrl] = useState<string>('http://localhost:3003');
     const [selectedAlert, setSelectedAlert] = useState<NWSAlertFeature | null>(null);
+    const [visibleCount, setVisibleCount] = useState(5);
     const lastFetchedTsRef = useRef<string | null>(null);
+
+    useEffect(() => {
+        setVisibleCount(5);
+    }, [selectedSeverity, currentTimestamp, data]);
 
     useEffect(() => {
         // Initialize API
@@ -71,7 +77,9 @@ export default function AlertsPage() {
                             shouldFetch = false;
                         }
                     } else {
-                        throw new Error("No NWS data available");
+                        // Don't throw here if we just started, allows silent fail until real data
+                        console.warn("No NWS data available");
+                        shouldFetch = false; 
                     }
                 } else {
                     // Specific timestamp
@@ -88,8 +96,17 @@ export default function AlertsPage() {
                 }
             } catch (err) {
                 console.error("Failed to load alerts", err);
+                let msg = err instanceof Error ? err.message : "Failed to load alerts";
+                
+                // User-friendly error mapping
+                if (msg.includes("500")) {
+                    msg = "Server Error (500). The NWS data service may be experiencing issues.";
+                } else if (msg.includes("404")) {
+                    msg = "Alert data not found for this timestamp.";
+                }
+
                 // Only show error text if we don't have data, otherwise just log it (silent fail on refresh)
-                if (!data) setError(err instanceof Error ? err.message : "Failed to load alerts");
+                if (!data) setError(msg);
             } finally {
                 setLoading(false);
             }
@@ -181,10 +198,28 @@ export default function AlertsPage() {
                 ) : (
                     <Virtuoso
                         useWindowScroll
-                        data={filteredFeatures}
+                        data={filteredFeatures.slice(0, visibleCount)}
+                        components={{
+                            Footer: () => (
+                                visibleCount < filteredFeatures.length ? (
+                                    <div className="py-8 flex justify-center">
+                                        <button 
+                                            onClick={() => setVisibleCount(prev => prev + 10)}
+                                            className="px-8 py-3 bg-white/5 hover:bg-white/10 active:bg-white/15 border border-white/10 rounded-full text-slate-300 hover:text-white font-medium transition-all uppercase tracking-wide text-xs group"
+                                        >
+                                            Show More Alerts <span className="text-slate-500 group-hover:text-slate-400 ml-1">({filteredFeatures.length - visibleCount})</span>
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="py-8 text-center opacity-50">
+                                        <span className="text-slate-600 text-xs uppercase tracking-widest font-bold">• End of List •</span>
+                                    </div>
+                                )
+                            )
+                        }}
                         itemContent={(index, feature) => {
                             const props = feature.properties;
-                            const colors = getSeverityColor(props.severity);
+                            const colors = getSeverityClasses(props.severity);
                             
                             return (
                                 <div className="pb-4">
@@ -282,5 +317,13 @@ export default function AlertsPage() {
                 onClose={() => setSelectedAlert(null)} 
             />
         </div>
+    );
+}
+
+export default function AlertsPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen bg-[#07112a] flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div></div>}>
+            <AlertsContent />
+        </Suspense>
     );
 }

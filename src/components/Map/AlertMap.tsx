@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, memo } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Layers } from 'lucide-react';
@@ -15,18 +15,25 @@ interface AlertMapProps {
     ewmrsUrl: string;
 }
 
-export default function AlertMap({ feature, currentTimestamp, ewmrsUrl }: AlertMapProps) {
+export function AlertMap({ feature, currentTimestamp, ewmrsUrl }: AlertMapProps) {
     const mapContainerRef = useRef<HTMLDivElement>(null);
     const mapInstanceRef = useRef<L.Map | null>(null);
     const geometryLayerRef = useRef<L.Layer | null>(null);
     const radarLayerRef = useRef<L.Layer | null>(null);
+    const isMountedRef = useRef(true);
     const [isVisible, setIsVisible] = useState(false);
     const [showRadar, setShowRadar] = useState(true);
+
+    // Track mount status
+    useEffect(() => {
+        isMountedRef.current = true;
+        return () => { isMountedRef.current = false; };
+    }, []);
 
     // Lazy load: Only render when in viewport
     useEffect(() => {
         const observer = new IntersectionObserver((entries) => {
-            if (entries[0].isIntersecting) {
+            if (entries[0].isIntersecting && isMountedRef.current) {
                 setIsVisible(true);
                 observer.disconnect();
             }
@@ -141,11 +148,13 @@ export default function AlertMap({ feature, currentTimestamp, ewmrsUrl }: AlertM
             const severity = feature.properties.severity || 'Unknown';
             const colors = getEventColors(feature.properties.event, severity);
 
-            const layer = L.geoJSON({
+            const geoJsonFeature: GeoJSON.Feature = {
                 type: 'Feature',
                 geometry: geometry,
                 properties: feature.properties
-            }, {
+            };
+
+            const layer = L.geoJSON(geoJsonFeature, {
                 style: {
                     color: colors.border,
                     fillColor: colors.dot, // Use the 'dot' color for fill which is usually brighter/matching
@@ -190,6 +199,8 @@ export default function AlertMap({ feature, currentTimestamp, ewmrsUrl }: AlertM
                 const timestamps = await api.getProductTimestamps('Reflectivity');
                 const bestTs = findClosestTimestamp(currentTimestamp, timestamps);
 
+                if (!isMountedRef.current || !map.getContainer()) return;
+
                 if (bestTs) {
                     const url = api.getRenderUrl('Reflectivity', bestTs);
                     const bounds: L.LatLngBoundsExpression = [[20, -130], [55, -60]]; // CONUS fixed bounds for now (matches main map)
@@ -230,3 +241,5 @@ export default function AlertMap({ feature, currentTimestamp, ewmrsUrl }: AlertM
         </div>
     );
 }
+
+export default memo(AlertMap);

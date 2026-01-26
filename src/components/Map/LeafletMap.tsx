@@ -4,11 +4,11 @@ import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import Link from 'next/link';
-import { Map as MapIcon, Wifi, List, Settings } from 'lucide-react';
+import { Map as MapIcon, Wifi, List, Settings, AlertTriangle } from 'lucide-react';
 import { Cell, NWSAlertFeature } from '@/types';
 import { formatTimeLabel, findClosestTimestamp } from '@/utils/timestamp';
 import SlidebarControl from '../UI/SlidebarControl';
-import { MapToolbar } from '../UI/MapToolbar';
+import { MapToolbar, ToolButton } from '../UI/MapToolbar';
 import { DistanceTool } from '../UI/DistanceTool';
 import { CircleTool } from '../UI/CircleTool';
 import { LocationTool } from '../UI/LocationTool';
@@ -17,6 +17,7 @@ import ConnectionModal from '../UI/ConnectionModal';
 import MapSettingsPanel from '../UI/MapSettingsPanel';
 import ConnectionSettingsPanel from '../UI/ConnectionSettingsPanel';
 import CellListPanel from '../UI/CellListPanel';
+import AlertListPanel from '../UI/AlertListPanel';
 import ColormapLegend from '../UI/ColormapLegend';
 import { useMapConnection } from './hooks';
 import { useSPCLayer } from './hooks/useSPCLayer';
@@ -82,7 +83,10 @@ export default function LeafletMap() {
     const [showNWSAlerts, setShowNWSAlerts] = useState(false);
     const [showWpc, setShowWpc] = useState(false);
     const [currentCells, setCurrentCells] = useState<Cell[]>([]);
-    const [activePanel, setActivePanel] = useState<'map' | 'connection' | 'list' | 'settings' | null>(null);
+    const [nwsFeatures, setNwsFeatures] = useState<NWSAlertFeature[]>([]);
+    const [highlightedAlertId, setHighlightedAlertId] = useState<string | null>(null);
+    const [alertToZoom, setAlertToZoom] = useState<string | null>(null);
+    const [activePanel, setActivePanel] = useState<'map' | 'connection' | 'list' | 'settings' | 'alerts' | null>(null);
     const [selectedCellInfo, setSelectedCellInfo] = useState<string | null>(null);
 
     // WPC ERO State
@@ -179,7 +183,10 @@ export default function LeafletMap() {
         map: mapInstance,
         apiRef,
         showNWSAlerts,
-        currentTimestamp: timestamps[currentIndex] || null
+        currentTimestamp: timestamps[currentIndex] || null,
+        onFeaturesLoaded: setNwsFeatures,
+        highlightedAlertId,
+        focusAlertId: alertToZoom
     });
 
     useWPCLayer({
@@ -211,6 +218,8 @@ export default function LeafletMap() {
     useEffect(() => {
         // Prevent double init
         if (mapInstanceRef.current) return;
+
+        let resizeObserver: ResizeObserver | null = null;
 
         // Delay init slightly to ensure container is ready and layout has settled
         const timer = setTimeout(() => {
@@ -250,8 +259,11 @@ export default function LeafletMap() {
             setMapInstance(map);
 
             // Resize Observer to handle container size changes
-            const resizeObserver = new ResizeObserver(() => {
-                map.invalidateSize();
+            resizeObserver = new ResizeObserver(() => {
+                // Safety check: ensure map and container still exist
+                if (map && map.getContainer()) {
+                    map.invalidateSize();
+                }
             });
             resizeObserver.observe(mapContainerRef.current);
 
@@ -268,6 +280,9 @@ export default function LeafletMap() {
         // Cleanup
         return () => {
             clearTimeout(timer);
+            if (resizeObserver) {
+                resizeObserver.disconnect();
+            }
             if (mapInstanceRef.current) {
                 mapInstanceRef.current.remove();
                 mapInstanceRef.current = null;
@@ -798,6 +813,15 @@ export default function LeafletMap() {
         return colormaps[0] || null;
     }, [activeLayers, colormaps]);
 
+    // Memoized Handlers for AlertListPanel to prevent re-renders
+    const handleAlertClick = useCallback((feature: NWSAlertFeature) => {
+        setAlertToZoom(feature.id as string);
+    }, []);
+
+    const handleAlertHover = useCallback((alertId: string | null) => {
+        setHighlightedAlertId(alertId);
+    }, []);
+
     console.log('LeafletMap render: isConnected=', isConnected, 'loading=', loading);
 
     return (
@@ -860,6 +884,20 @@ export default function LeafletMap() {
                             >
                                 <List size={22} />
                             </button>
+                            <button
+                                onClick={() => {
+                                    if (activePanel === 'alerts') {
+                                        setActivePanel(null);
+                                    } else {
+                                        setActivePanel('alerts');
+                                        setShowNWSAlerts(true);
+                                    }
+                                }}
+                                className={`p-3 rounded-xl transition-all ${activePanel === 'alerts' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-blue-400 hover:bg-gray-800'}`}
+                                title="Active Alerts"
+                            >
+                                <AlertTriangle size={22} />
+                            </button>
 
                             <div className="flex-1" />
 
@@ -909,6 +947,15 @@ export default function LeafletMap() {
                                 onToggleWssiDay2={handleToggleWssiDay2}
                                 showWssiDay3={showWssiDay3}
                                 onToggleWssiDay3={handleToggleWssiDay3}
+                            />
+                        )}
+
+                        {/* ALERTS PANEL */}
+                        {activePanel === 'alerts' && (
+                            <AlertListPanel
+                                alerts={nwsFeatures}
+                                onAlertClick={handleAlertClick}
+                                onAlertHover={handleAlertHover}
                             />
                         )}
 

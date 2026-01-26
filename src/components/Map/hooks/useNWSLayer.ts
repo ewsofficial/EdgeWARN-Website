@@ -4,6 +4,7 @@ import L from 'leaflet';
 import { findClosestTimestamp } from '@/utils/timestamp';
 import { ZoneResolver } from '@/utils/nws-geoloader';
 import { getEventColors } from '../constants';
+import { NWSAlertFeature } from '@/types';
 
 interface UseNWSLayerProps {
     map: L.Map | null;
@@ -11,13 +12,19 @@ interface UseNWSLayerProps {
     apiRef: React.MutableRefObject<any>;
     showNWSAlerts: boolean;
     currentTimestamp: string | null;
+    onFeaturesLoaded?: (features: NWSAlertFeature[]) => void;
+    highlightedAlertId?: string | null;
+    focusAlertId?: string | null;
 }
 
 export function useNWSLayer({
     map,
     apiRef,
     showNWSAlerts,
-    currentTimestamp
+    currentTimestamp,
+    onFeaturesLoaded,
+    highlightedAlertId,
+    focusAlertId
 }: UseNWSLayerProps) {
     const nwsLayerRef = useRef<L.LayerGroup | null>(null);
     const lastNwsTsRef = useRef<string | null>(null);
@@ -36,6 +43,68 @@ export function useNWSLayer({
         }
     }, [showNWSAlerts, nwsTimestamps.length, apiRef]);
 
+    // Handle Highlighting
+    useEffect(() => {
+        if (!nwsLayerRef.current) return;
+        
+        nwsLayerRef.current.eachLayer((l: any) => {
+            if (!l.setStyle || !l.alertData) return;
+            const feature = l.alertData;
+            const isSelected = highlightedAlertId && (feature.id === highlightedAlertId || feature.properties.id === highlightedAlertId);
+            
+            const props = feature.properties;
+            const severity = props.severity || 'Unknown';
+            const colors = getEventColors(props.event, severity);
+
+            const targetWeight = isSelected ? 4 : 2;
+            const targetColor = isSelected ? '#ffffff' : colors.border;
+            const targetOpacity = isSelected ? 1 : 1;
+            const targetFillOpacity = isSelected ? 0.6 : 0.4;
+
+            // Optimization: Skip setStyle if already in desired state
+            // @ts-ignore - accessing leaflet interna/options
+            if (l.options && l.options.weight === targetWeight && l.options.color === targetColor) {
+               return; 
+            }
+
+            l.setStyle({
+                weight: targetWeight,
+                color: targetColor,
+                opacity: targetOpacity,
+                fillColor: colors.dot,
+                fillOpacity: targetFillOpacity
+            });
+
+            if (isSelected) {
+                l.bringToFront();
+            }
+        });
+    }, [highlightedAlertId]);
+
+    // Handle Zoom
+    useEffect(() => {
+        if (!map || !nwsLayerRef.current || !focusAlertId) return;
+
+        let foundLayer: L.Layer | null = null;
+        nwsLayerRef.current.eachLayer((l: any) => {
+            if (foundLayer) return;
+            const feature = l.alertData;
+            if (feature && (feature.id === focusAlertId || feature.properties.id === focusAlertId)) {
+                foundLayer = l;
+            }
+        });
+
+        if (foundLayer) {
+             // foundLayer is L.GeoJSON (FeatureGroup) because we created it via L.geoJSON
+             if (typeof (foundLayer as L.FeatureGroup).getBounds === 'function') {
+                 const bounds = (foundLayer as L.FeatureGroup).getBounds();
+                 if (bounds.isValid()) {
+                    map.flyToBounds(bounds, { padding: [100, 100], maxZoom: 10, duration: 1.5 });
+                 }
+             }
+        }
+    }, [focusAlertId, map]);
+
     useEffect(() => {
         if (!map) {
             return;
@@ -46,6 +115,8 @@ export function useNWSLayer({
                 map.removeLayer(nwsLayerRef.current);
                 nwsLayerRef.current = null;
                 lastNwsTsRef.current = null;
+                // Clear content
+                if (onFeaturesLoaded) onFeaturesLoaded([]);
             }
             return;
         }
@@ -59,7 +130,10 @@ export function useNWSLayer({
 
             // NWS alerts are updated less frequently, allow 2 hour tolerance
             const bestTs = findClosestTimestamp(currentTimestamp, nwsTimestamps, 120 * 60 * 1000);
-            if (!bestTs) return;
+            if (!bestTs) {
+                if (onFeaturesLoaded) onFeaturesLoaded([]);
+                return;
+            }
 
             let dataToRender = null;
             if (bestTs === lastNwsTsRef.current && lastNwsDataRef.current) {
@@ -78,6 +152,14 @@ export function useNWSLayer({
 
             if (!dataToRender) return;
 
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const features: any[] = (dataToRender as any).data?.features || [];
+             // Filter duplicates here if needed?
+             // Or pass all.
+            if (onFeaturesLoaded) {
+                onFeaturesLoaded(features);
+            }
+
             // Clear existing or create new
             if (nwsLayerRef.current) {
                 nwsLayerRef.current.clearLayers();
@@ -86,9 +168,6 @@ export function useNWSLayer({
             }
 
             try {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const features = (dataToRender as any).data?.features || [];
-
                 // PHASE 1: Collect ALL unique geocodes from ALL features
                 const allGeocodes = new Set<string>();
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -263,6 +342,9 @@ export function useNWSLayer({
                         })
                     });
 
+                    // Store feature for highlighting lookup
+                    (layer as any).alertData = feature;
+
                     layer.bindPopup(popup, {
                         closeButton: true,
                         className: 'nws-popup',
@@ -278,5 +360,5 @@ export function useNWSLayer({
         };
 
         renderNWS();
-    }, [map, showNWSAlerts, currentTimestamp, nwsTimestamps, apiRef]);
+    }, [map, showNWSAlerts, currentTimestamp, nwsTimestamps, apiRef, onFeaturesLoaded]);
 }

@@ -93,6 +93,16 @@ export function useMapConnection(): UseMapConnectionReturn {
         setError(null);
 
         try {
+            // Protocol validation
+            if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
+                if (finalApiUrl.toLowerCase().startsWith('http:')) {
+                    throw new Error('Mixed Content: Cannot connect to an insecure HTTP API from an HTTPS page. Please use an HTTPS API URL.');
+                }
+                if (finalEwmrsUrl.toLowerCase().startsWith('http:')) {
+                    throw new Error('Mixed Content: Cannot connect to an insecure HTTP EWMRS from an HTTPS page. Please use an HTTPS EWMRS URL.');
+                }
+            }
+
             apiRef.current = new EdgeWARNAPI(finalApiUrl);
             ewmrsRef.current = new EWMRSAPI(finalEwmrsUrl);
 
@@ -164,7 +174,16 @@ export function useMapConnection(): UseMapConnectionReturn {
             });
 
         } catch (err) {
-            setError((err as Error).message);
+            let message = (err as Error).message;
+            if (message === 'Failed to fetch' || message.includes('Network request failed')) {
+               if (window.location.protocol === 'https:' && 
+                  (finalApiUrl.toLowerCase().startsWith('https:') || finalEwmrsUrl.toLowerCase().startsWith('https:'))) {
+                   message = 'Network error. If using self-signed certificates, you may need to open the API URL in a new tab and accept the warning.';
+               } else {
+                   message = 'Network error. Please check if the API server is running and accessible.';
+               }
+            }
+            setError(message);
         } finally {
             setLoading(false);
         }
