@@ -30,6 +30,7 @@ const getSeverityColor = (severity: string) => {
 function AlertsContent() {
     const searchParams = useSearchParams();
     const timestampParam = searchParams.get('timestamp');
+    const alertIdParam = searchParams.get('id');
     
     const { apiRef, isConnected, ewmrsUrl } = useMapContext();
 
@@ -41,6 +42,16 @@ function AlertsContent() {
     const [selectedAlert, setSelectedAlert] = useState<NWSAlertFeature | null>(null);
     const [visibleCount, setVisibleCount] = useState(5);
     const lastFetchedTsRef = useRef<string | null>(null);
+
+    // Effect to handle deep linking to a specific alert via query param
+    useEffect(() => {
+        if (alertIdParam && data) {
+            const found = data.data.features.find(f => f.id === alertIdParam || f.properties.id === alertIdParam);
+            if (found) {
+                setSelectedAlert(found);
+            }
+        }
+    }, [alertIdParam, data]);
 
     useEffect(() => {
         setVisibleCount(5);
