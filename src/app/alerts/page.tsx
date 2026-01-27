@@ -11,6 +11,8 @@ import AlertDetailsModal from '@/components/UI/AlertDetailsModal';
 import { getSeverityClasses } from '@/utils/styling';
 import { useMapContext } from '@/components/Map/context/MapContext';
 
+import { parseTimestamp } from '@/utils/timestamp';
+
 const AlertMap = dynamic(() => import('@/components/Map/AlertMap'), { 
     ssr: false,
     loading: () => <div className="w-full h-full bg-slate-900 animate-pulse" />
@@ -131,6 +133,20 @@ function AlertsContent() {
             });
         } catch { return iso; }
     };
+    
+    const formatHeaderTimestamp = (ts: string | null) => {
+        if (!ts) return 'Loading...';
+        const date = parseTimestamp(ts);
+        if (!date) return ts;
+        return date.toLocaleString('en-US', {
+             weekday: 'short',
+             month: 'short', 
+             day: 'numeric', 
+             hour: 'numeric', 
+             minute: '2-digit',
+             timeZoneName: 'short'
+        });
+    };
 
     const severities = ['All', 'Extreme', 'Severe', 'Moderate', 'Minor', 'Unknown'];
     
@@ -155,7 +171,7 @@ function AlertsContent() {
                             </h1>
                             <p className="text-slate-400 flex items-center gap-2 text-sm mt-1">
                                 <Clock className="w-4 h-4" />
-                                Data Time: <span className="text-blue-400 font-mono">{currentTimestamp || 'Loading...'}</span>
+                                Valid: <span className="text-blue-400 font-mono">{formatHeaderTimestamp(currentTimestamp)}</span>
                             </p>
                         </div>
                     </div>
