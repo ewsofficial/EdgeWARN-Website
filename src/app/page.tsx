@@ -164,56 +164,59 @@ export default function Home() {
             </div>
 
             {/* Active Alerts Preview Section */}
-            {(activeAlerts.length > 0 || loadingAlerts) && (
-              <div className="w-full max-w-4xl pt-8 border-t border-white/5 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                <div className="flex items-center justify-between mb-4 px-2">
-                  <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                    <AlertTriangle className="w-5 h-5 text-amber-500" />
-                    Active Alerts Preview
-                  </h3>
-                  <Link href="/alerts" className="text-sm text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors">
-                    View All <ArrowRight className="w-4 h-4" />
-                  </Link>
-                </div>
-
-                <div className="space-y-3">
-                  {loadingAlerts ? (
-                    [1, 2].map(i => (
-                      <div key={i} className="h-20 rounded-xl bg-white/5 animate-pulse border border-white/5" />
-                    ))
-                  ) : (
-                    activeAlerts.map(alert => {
-                      const colors = getSeverityClasses(alert.properties.severity);
-                      return (
-                        <Link
-                          key={alert.id}
-                          href={`/alerts?id=${alert.id}`}
-                          className={`block relative overflow-hidden rounded-xl border ${colors.border} bg-black/20 hover:bg-white/5 transition-all duration-300 group/alert`}
-                        >
-                          <div className="flex items-center p-4 gap-4">
-                            <div className={`${colors.badge} w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0`}>
-                              <AlertTriangle className="w-6 h-6 text-white" />
-                            </div>
-                            <div className="flex-grow min-w-0">
-                              <div className="flex items-center justify-between gap-2">
-                                <h4 className={`font-bold truncate ${colors.text}`}>{alert.properties.event}</h4>
-                                <span className="text-xs text-slate-500 font-mono whitespace-nowrap hidden sm:block">
-                                  {new Date(alert.properties.sent).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </span>
-                              </div>
-                              <p className="text-sm text-slate-400 truncate pr-4">
-                                {alert.properties.headline || alert.properties.areaDesc}
-                              </p>
-                            </div>
-                            <ChevronRight className="w-5 h-5 text-slate-600 group-hover/alert:text-white group-hover/alert:translate-x-1 transition-all" />
-                          </div>
-                        </Link>
-                      );
-                    })
-                  )}
-                </div>
+            {/* Active Alerts Preview Section */}
+            <div className="w-full max-w-4xl pt-8 border-t border-white/5 animate-in fade-in slide-in-from-bottom-4 duration-700">
+              <div className="flex items-center justify-between mb-4 px-2">
+                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-amber-500" />
+                  Active Alerts Preview
+                </h3>
+                <Link href="/alerts" className="text-sm text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors">
+                  View All <ArrowRight className="w-4 h-4" />
+                </Link>
               </div>
-            )}
+
+              <div className="space-y-3">
+                {loadingAlerts ? (
+                  [1, 2].map(i => (
+                    <div key={i} className="h-20 rounded-xl bg-white/5 animate-pulse border border-white/5" />
+                  ))
+                ) : activeAlerts.length > 0 ? (
+                  activeAlerts.map(alert => {
+                    const colors = getSeverityClasses(alert.properties.severity);
+                    return (
+                      <Link
+                        key={alert.id}
+                        href={`/alerts?id=${alert.id}`}
+                        className={`block relative overflow-hidden rounded-xl border ${colors.border} bg-black/20 hover:bg-white/5 transition-all duration-300 group/alert`}
+                      >
+                        <div className="flex items-center p-4 gap-4">
+                          <div className={`${colors.badge} w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0`}>
+                            <AlertTriangle className="w-6 h-6 text-white" />
+                          </div>
+                          <div className="flex-grow min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <h4 className={`font-bold truncate ${colors.text}`}>{alert.properties.event}</h4>
+                              <span className="text-xs text-slate-500 font-mono whitespace-nowrap hidden sm:block">
+                                {new Date(alert.properties.sent).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+                            <p className="text-sm text-slate-400 truncate pr-4">
+                              {alert.properties.headline || alert.properties.areaDesc}
+                            </p>
+                          </div>
+                          <ChevronRight className="w-5 h-5 text-slate-600 group-hover/alert:text-white group-hover/alert:translate-x-1 transition-all" />
+                        </div>
+                      </Link>
+                    );
+                  })
+                ) : (
+                  <div className="text-center py-8 border border-white/5 rounded-xl bg-white/5 backdrop-blur-sm">
+                    <p className="text-slate-400 text-sm">No significant weather alerts at this time.</p>
+                  </div>
+                )}
+              </div>
+            </div>
 
             {/* Social Links with Enhanced Hover Effects */}
             <div className="flex items-center gap-8 pt-12 border-t border-white/5 w-full justify-center">
