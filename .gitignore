@@ -219,5 +219,8 @@ node_modules
 # Uncomment if desired:
 # next-env.d.ts
 
+screenshots/
+# Kilo Code Web Browser Stuff
+
 .jules
 .Jules
