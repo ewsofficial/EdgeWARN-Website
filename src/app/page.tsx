@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import LightningEffect from '@/components/LightningEffect';
 import GroundEffect from '@/components/GroundEffect';
+import LakeEffect from '@/components/LakeEffect';
 import { ArrowRight, BookOpen, Github, Instagram, Zap, Shield, Map, AlertTriangle, Clock, ChevronRight } from 'lucide-react';
 import { useMapContext } from '@/components/Map/context/MapContext';
 import { NWSAlertFeature } from '@/types';
@@ -36,8 +37,7 @@ export default function Home() {
             return (severityOrder[sevA] ?? 4) - (severityOrder[sevB] ?? 4);
           });
 
-          const severeOnly = sorted.filter((a: NWSAlertFeature) => a.properties.severity === 'Extreme' || a.properties.severity === 'Severe');
-          setActiveAlerts(severeOnly.slice(0, 4));
+          setActiveAlerts(sorted.slice(0, 4));
         }
       } catch (e) {
         console.error("Failed to fetch homepage alerts", e);
@@ -60,6 +60,7 @@ export default function Home() {
 
       <LightningEffect />
       <GroundEffect />
+      <LakeEffect />
 
       <div className="relative z-10 w-full max-w-6xl px-6 py-12">
         <div className="backdrop-blur-2xl bg-white/5 border border-white/10 rounded-3xl p-8 md:p-16 shadow-2xl ring-1 ring-white/10 relative overflow-hidden group">
