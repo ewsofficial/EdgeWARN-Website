@@ -58,7 +58,7 @@ export function AlertMap({ feature, currentTimestamp, ewmrsUrl }: AlertMapProps)
             zoom: 4,
             zoomControl: true,   // Enable zoom buttons
             dragging: true,      // Allow panning
-            scrollWheelZoom: true, // Allow scroll zoom
+            scrollWheelZoom: false, // Disable scroll zoom to prevent list scroll errors
             touchZoom: true,
             doubleClickZoom: true,
             boxZoom: true,       // Shift-drag zoom
@@ -167,7 +167,7 @@ export function AlertMap({ feature, currentTimestamp, ewmrsUrl }: AlertMapProps)
             geometryLayerRef.current = layer;
 
             try {
-                map.fitBounds(layer.getBounds(), { padding: [20, 20] });
+                map.fitBounds(layer.getBounds(), { padding: [20, 20], animate: false });
             } catch { /* ignore invalid bounds */ }
         }
 
@@ -199,7 +199,7 @@ export function AlertMap({ feature, currentTimestamp, ewmrsUrl }: AlertMapProps)
                 const timestamps = await api.getProductTimestamps('Reflectivity');
                 const bestTs = findClosestTimestamp(currentTimestamp, timestamps);
 
-                if (!isMountedRef.current || !map.getContainer()) return;
+                if (!isMountedRef.current || !map.getContainer() || mapInstanceRef.current !== map) return;
 
                 if (bestTs) {
                     const url = api.getRenderUrl('Reflectivity', bestTs);
