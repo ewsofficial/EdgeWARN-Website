@@ -67,34 +67,38 @@ export default function Home() {
           {/* Grid overlay */}
           <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTYwIDYwaC02MHYtNjBoNjB2NjB6IiBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiLz48cGF0aCBkPSJNMzAgMzBoLTMydi0zMmgzMHYzMnoiIGZpbG9vbmVUdXJidWxlbmNlPSJ1dXNlclNwYWNlIi8+PC9nPjwvZz48L3N2Zz4=')] opacity-30" />
 
-          <div className="flex flex-col items-center text-center space-y-10">
+          <div className="flex flex-col items-center space-y-10">
 
-            {/* Logo Section with Enhanced Effects */}
-            <div className="relative group/logo">
-              <div className="absolute inset-0 bg-gradient-to-r from-purple-500/40 to-blue-500/40 blur-3xl rounded-full opacity-50 group-hover/logo:opacity-75 transition-opacity duration-700" />
-              <div className="relative w-36 h-36 md:w-48 md:h-48 bg-black/30 backdrop-blur-md rounded-3xl p-5 border border-white/10 shadow-2xl transform group-hover/logo:scale-105 transition-all duration-500 ease-out">
-                <Image
-                  src="/assets/EdgeWARN.png"
-                  alt="EdgeWARN Logo"
-                  width={192}
-                  height={192}
-                  className="w-full h-full object-contain drop-shadow-2xl"
-                  priority
-                />
+            {/* Header Section: Logo + Text */}
+            <div className="flex flex-col md:flex-row items-center gap-8 md:gap-12 text-center md:text-left">
+              
+              {/* Logo Section with Enhanced Effects */}
+              <div className="relative group/logo flex-shrink-0">
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-400/30 to-blue-600/30 blur-3xl rounded-full opacity-50 group-hover/logo:opacity-75 transition-opacity duration-700" />
+                <div className="relative w-32 h-32 md:w-44 md:h-44 transform group-hover/logo:scale-105 transition-all duration-500 ease-out">
+                  <Image
+                    src="/assets/EdgeWARN.png"
+                    alt="EdgeWARN Logo"
+                    width={176}
+                    height={176}
+                    className="w-full h-full object-contain drop-shadow-2xl"
+                    priority
+                  />
+                </div>
               </div>
-            </div>
 
-            {/* Text Content with Improved Typography */}
-            <div className="space-y-6 max-w-3xl">
-              <h1 className="text-6xl md:text-8xl font-black tracking-tight bg-gradient-to-r from-white via-purple-50 to-white/80 bg-clip-text text-transparent drop-shadow-sm">
-                EdgeWARN
-              </h1>
-              <p className="text-2xl md:text-3xl font-semibold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-cyan-400 to-purple-400 tracking-wide">
-                Severe Weather Nowcasting
-              </p>
-              <p className="text-lg text-slate-400 leading-relaxed max-w-2xl mx-auto">
-                High-resolution, real-time weather intelligence for communities and first responders.
-              </p>
+              {/* Text Content with Improved Typography */}
+              <div className="space-y-4 max-w-2xl">
+                <h1 className="text-6xl md:text-8xl font-black tracking-tight bg-gradient-to-br from-cyan-300 via-blue-500 to-blue-900 bg-clip-text text-transparent drop-shadow-sm pb-2">
+                  EdgeWARN
+                </h1>
+                <p className="text-2xl md:text-3xl font-semibold text-transparent bg-clip-text bg-gradient-to-r from-blue-300 via-cyan-300 to-purple-300 tracking-wide">
+                  Severe Weather Nowcasting
+                </p>
+                <p className="text-lg text-slate-400 leading-relaxed max-w-lg mx-auto md:mx-0">
+                  High-resolution, real-time weather intelligence for communities and first responders.
+                </p>
+              </div>
             </div>
 
             {/* Feature Highlights */}
