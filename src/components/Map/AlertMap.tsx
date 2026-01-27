@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, memo } from 'react';
+import { useRouter } from 'next/navigation';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Layers } from 'lucide-react';
@@ -16,6 +17,7 @@ interface AlertMapProps {
 }
 
 export function AlertMap({ feature, currentTimestamp, ewmrsUrl }: AlertMapProps) {
+    const router = useRouter();
     const mapContainerRef = useRef<HTMLDivElement>(null);
     const mapInstanceRef = useRef<L.Map | null>(null);
     const geometryLayerRef = useRef<L.Layer | null>(null);
@@ -77,10 +79,10 @@ export function AlertMap({ feature, currentTimestamp, ewmrsUrl }: AlertMapProps)
         }).addTo(map);
 
         mapInstanceRef.current = map;
-        
+
         return () => {
-             map.remove();
-             mapInstanceRef.current = null;
+            map.remove();
+            mapInstanceRef.current = null;
         }
     }, [isVisible]);
 
@@ -101,7 +103,7 @@ export function AlertMap({ feature, currentTimestamp, ewmrsUrl }: AlertMapProps)
         if (feature.geometry && (feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon')) {
             geometry = feature.geometry;
         }
-        
+
         // 2. Try Computed Polygon
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const customPolygon = (feature as any).Polygon;
@@ -123,7 +125,7 @@ export function AlertMap({ feature, currentTimestamp, ewmrsUrl }: AlertMapProps)
                         // Swap if [Lat, Lon] -> [Lon, Lat]
                         return (val1 > 0 && val2 < 0) ? [val2, val1] : [val1, val2];
                     });
-                    
+
                     // Close ring
                     if (coords.length > 0) {
                         const first = coords[0];
@@ -164,6 +166,31 @@ export function AlertMap({ feature, currentTimestamp, ewmrsUrl }: AlertMapProps)
                 }
             }).addTo(map);
 
+            // Bind Popup for redirection
+            const popupContent = document.createElement('div');
+            popupContent.className = 'text-center p-1';
+            popupContent.innerHTML = `
+                <div class="font-bold text-slate-800 mb-2 text-sm">View on Interactive Map</div>
+                <button id="alert-nav-btn-${feature.id}" class="bg-blue-600 text-white px-4 py-1.5 rounded-full text-xs font-semibold hover:bg-blue-500 transition-colors shadow-sm">
+                    Open Map
+                </button>
+            `;
+
+            layer.bindPopup(popupContent, {
+                closeButton: false,
+                className: 'alert-popup-custom'
+            });
+
+            layer.on('popupopen', () => {
+                const btn = document.getElementById(`alert-nav-btn-${feature.id}`);
+                if (btn) {
+                    btn.onclick = (e) => {
+                        e.stopPropagation();
+                        router.push(`/interactive-map?id=${feature.id}`);
+                    };
+                }
+            });
+
             geometryLayerRef.current = layer;
 
             try {
@@ -171,23 +198,23 @@ export function AlertMap({ feature, currentTimestamp, ewmrsUrl }: AlertMapProps)
             } catch { /* ignore invalid bounds */ }
         }
 
-    }, [feature, isVisible]);
+    }, [feature, isVisible, router]);
 
     // Render Radar Overlay
     useEffect(() => {
         const map = mapInstanceRef.current;
         if (!map) return;
-        
+
         // Cleanup old radar if hidden or updating
         if ((!showRadar || !currentTimestamp || !ewmrsUrl) && radarLayerRef.current) {
-             map.removeLayer(radarLayerRef.current);
-             radarLayerRef.current = null;
+            map.removeLayer(radarLayerRef.current);
+            radarLayerRef.current = null;
         }
 
         if (!showRadar || !currentTimestamp || !ewmrsUrl) return;
 
         const loadRadar = async () => {
-             // Cleanup (double check)
+            // Cleanup (double check)
             if (radarLayerRef.current) {
                 map.removeLayer(radarLayerRef.current);
                 radarLayerRef.current = null;
@@ -204,7 +231,7 @@ export function AlertMap({ feature, currentTimestamp, ewmrsUrl }: AlertMapProps)
                 if (bestTs) {
                     const url = api.getRenderUrl('Reflectivity', bestTs);
                     const bounds: L.LatLngBoundsExpression = [[20, -130], [55, -60]]; // CONUS fixed bounds for now (matches main map)
-                    
+
                     const overlay = L.imageOverlay(url, bounds, { opacity: 0.6 }).addTo(map);
                     overlay.bringToBack();
                     radarLayerRef.current = overlay;
@@ -220,13 +247,13 @@ export function AlertMap({ feature, currentTimestamp, ewmrsUrl }: AlertMapProps)
 
     return (
         <div className="w-full h-full bg-black/40 relative group">
-             <div ref={mapContainerRef} className="w-full h-full" />
-             
-             {/* Interaction Overlay - Pointer events auto via Leaflet, just border */}
-             <div className="absolute inset-0 pointer-events-none border border-white/5 rounded-lg z-[400]" />
-             
-             {/* Controls */}
-             <div className="absolute top-2 right-2 z-[500] opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+            <div ref={mapContainerRef} className="w-full h-full" />
+
+            {/* Interaction Overlay - Pointer events auto via Leaflet, just border */}
+            <div className="absolute inset-0 pointer-events-none border border-white/5 rounded-lg z-[400]" />
+
+            {/* Controls */}
+            <div className="absolute top-2 right-2 z-[500] opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                 <button
                     onClick={(e) => {
                         e.stopPropagation(); // Prevent map click if any
@@ -237,7 +264,7 @@ export function AlertMap({ feature, currentTimestamp, ewmrsUrl }: AlertMapProps)
                 >
                     <Layers size={14} />
                 </button>
-             </div>
+            </div>
         </div>
     );
 }

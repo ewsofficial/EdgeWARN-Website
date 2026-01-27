@@ -31,6 +31,7 @@ export function useNWSLayer({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const lastNwsDataRef = useRef<any>(null);
     const [nwsTimestamps, setNwsTimestamps] = useState<string[]>([]);
+    const [lastRenderTime, setLastRenderTime] = useState(0);
 
     // Effect for NWS Alerts - Fetch timestamps
     useEffect(() => {
@@ -46,12 +47,12 @@ export function useNWSLayer({
     // Handle Highlighting
     useEffect(() => {
         if (!nwsLayerRef.current) return;
-        
+
         nwsLayerRef.current.eachLayer((l: any) => {
             if (!l.setStyle || !l.alertData) return;
             const feature = l.alertData;
             const isSelected = highlightedAlertId && (feature.id === highlightedAlertId || feature.properties.id === highlightedAlertId);
-            
+
             const props = feature.properties;
             const severity = props.severity || 'Unknown';
             const colors = getEventColors(props.event, severity);
@@ -64,7 +65,7 @@ export function useNWSLayer({
             // Optimization: Skip setStyle if already in desired state
             // @ts-ignore - accessing leaflet interna/options
             if (l.options && l.options.weight === targetWeight && l.options.color === targetColor) {
-               return; 
+                return;
             }
 
             l.setStyle({
@@ -79,7 +80,7 @@ export function useNWSLayer({
                 l.bringToFront();
             }
         });
-    }, [highlightedAlertId]);
+    }, [highlightedAlertId, lastRenderTime]);
 
     // Handle Zoom
     useEffect(() => {
@@ -95,15 +96,15 @@ export function useNWSLayer({
         });
 
         if (foundLayer) {
-             // foundLayer is L.GeoJSON (FeatureGroup) because we created it via L.geoJSON
-             if (typeof (foundLayer as L.FeatureGroup).getBounds === 'function') {
-                 const bounds = (foundLayer as L.FeatureGroup).getBounds();
-                 if (bounds.isValid()) {
+            // foundLayer is L.GeoJSON (FeatureGroup) because we created it via L.geoJSON
+            if (typeof (foundLayer as L.FeatureGroup).getBounds === 'function') {
+                const bounds = (foundLayer as L.FeatureGroup).getBounds();
+                if (bounds.isValid()) {
                     map.flyToBounds(bounds, { padding: [100, 100], maxZoom: 10, duration: 1.5 });
-                 }
-             }
+                }
+            }
         }
-    }, [focusAlertId, map]);
+    }, [focusAlertId, map, lastRenderTime]);
 
     useEffect(() => {
         if (!map) {
@@ -154,8 +155,8 @@ export function useNWSLayer({
 
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const features: any[] = (dataToRender as any).data?.features || [];
-             // Filter duplicates here if needed?
-             // Or pass all.
+            // Filter duplicates here if needed?
+            // Or pass all.
             if (onFeaturesLoaded) {
                 onFeaturesLoaded(features);
             }
@@ -204,8 +205,8 @@ export function useNWSLayer({
                     if (feature.geometry && (feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon')) {
                         geometries.push(feature.geometry as GeoJSON.Polygon | GeoJSON.MultiPolygon);
                         geometryHandled = true;
-                    } 
-                    
+                    }
+
                     // 2. Try Computed Zone Polygon (Zone-based union) - injected as top-level field
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     const customPolygon = (feature as any).Polygon;
@@ -214,14 +215,14 @@ export function useNWSLayer({
                         try {
                             // Determine depth to handle Rings[] (Polygon) vs Points[] (Ring)
                             const ismultiRing = Array.isArray(customPolygon[0]) && Array.isArray((customPolygon as any)[0][0]);
-                            
+
                             // Normalize to number[][][] (Array of Rings)
                             // eslint-disable-next-line @typescript-eslint/no-explicit-any
                             const rings: any[] = ismultiRing ? customPolygon : [customPolygon];
 
                             const processedCoordinates = rings.map(ring => {
                                 if (!Array.isArray(ring)) return [];
-                                
+
                                 return ring.map((pt: any) => {
                                     if (!Array.isArray(pt) || pt.length < 2) return [0, 0];
                                     const val1 = Number(pt[0]);
@@ -232,11 +233,11 @@ export function useNWSLayer({
                                     // Heuristic: US Lat > 0, US Lon < 0
                                     // GeoJSON requires [Lon, Lat]
                                     if (val1 > 0 && val2 < 0) {
-                                         // Input was [Lat, Lon] -> Swap to [Lon, Lat]
-                                         return [val2, val1];
+                                        // Input was [Lat, Lon] -> Swap to [Lon, Lat]
+                                        return [val2, val1];
                                     } else {
-                                         // Input was [Lon, Lat] -> Keep
-                                         return [val1, val2];
+                                        // Input was [Lon, Lat] -> Keep
+                                        return [val1, val2];
                                     }
                                 });
                             });
@@ -253,7 +254,7 @@ export function useNWSLayer({
                             });
 
                             const validRings = processedCoordinates.filter(r => r.length >= 4); // Min 3 pts + closed
-                            
+
                             if (validRings.length > 0) {
                                 geometries.push({
                                     type: 'Polygon',
@@ -262,7 +263,7 @@ export function useNWSLayer({
                                 geometryHandled = true;
                             }
                         } catch (e) {
-                           console.warn("Failed to parse custom Polygon for", props.event, e);
+                            console.warn("Failed to parse custom Polygon for", props.event, e);
                         }
                     }
 
@@ -357,6 +358,7 @@ export function useNWSLayer({
             } catch (e) {
                 console.warn("Error rendering NWS", e);
             }
+            setLastRenderTime(Date.now());
         };
 
         renderNWS();

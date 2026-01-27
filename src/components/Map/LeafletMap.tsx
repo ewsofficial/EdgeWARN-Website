@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import Link from 'next/link';
@@ -36,6 +37,9 @@ import {
 import { generateConePolygon } from '@/utils/geo';
 
 export default function LeafletMap() {
+    const searchParams = useSearchParams();
+    const alertIdParam = searchParams.get('id');
+
     // Use custom hook for connection state and handlers
     const {
         apiUrl,
@@ -88,6 +92,15 @@ export default function LeafletMap() {
     const [activePanel, setActivePanel] = useState<'map' | 'connection' | 'list' | 'settings' | 'alerts' | 'info' | null>(null);
     const [selectedCellInfo, setSelectedCellInfo] = useState<string | null>(null);
     const [focusedCellId, setFocusedCellId] = useState<string | number | null>(null);
+
+    // Deep Link Effect
+    useEffect(() => {
+        if (alertIdParam) {
+            setShowNWSAlerts(true);
+            setAlertToZoom(alertIdParam);
+            setActivePanel('alerts');
+        }
+    }, [alertIdParam]);
 
     const handleClosePopup = useCallback(() => {
         setSelectedCellInfo(null);
@@ -828,12 +841,12 @@ export default function LeafletMap() {
 
             {/* Styles for pixelated */}
             <style jsx global>{`
-                .pixelated-overlay {
-                    image-rendering: pixelated;
-                    image-rendering: -moz-crisp-edges;
-                    image-rendering: crisp-edges;
-                }
-             `}</style>
+            .pixelated-overlay {
+                image-rendering: pixelated;
+                image-rendering: -moz-crisp-edges;
+                image-rendering: crisp-edges;
+            }
+         `}</style>
 
             {/* Combined Left Panel Group - Fixed width to align Rail (3.5rem) + Sidebar (20rem) with Footer */}
             <div className="flex flex-col flex-shrink-0 z-30 shadow-xl h-full w-[23.5rem] bg-gray-800">
@@ -992,13 +1005,13 @@ export default function LeafletMap() {
                         )}
 
                         {/* Default/Empty State if nothing selected? Or maybe 'connection' should be default?
-                              If activePanel is null, sidebar is empty?
-                              Let's leave it empty if null for cleaner look, or maybe show Logo?
-                              Actually, let's make 'connection' or 'map' default?
-                              User said "appears when you click it". So default is likely closed/empty?
-                              But we have a fixed width sidebar space. If it's empty it looks weird.
-                              Let's show "Select a tool from the rail" message if null.
-                           */}
+                          If activePanel is null, sidebar is empty?
+                          Let's leave it empty if null for cleaner look, or maybe show Logo?
+                          Actually, let's make 'connection' or 'map' default?
+                          User said "appears when you click it". So default is likely closed/empty?
+                          But we have a fixed width sidebar space. If it's empty it looks weird.
+                          Let's show "Select a tool from the rail" message if null.
+                       */}
                         {activePanel === null && (
                             <div className="flex flex-col items-center justify-center h-full text-gray-500 text-sm italic p-6 text-center">
                                 <div className="text-gray-600 mb-2">EdgeWARN</div>
