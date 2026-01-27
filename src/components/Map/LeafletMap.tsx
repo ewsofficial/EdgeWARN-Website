@@ -5,7 +5,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Map as MapIcon, Wifi, List, Settings, AlertTriangle } from 'lucide-react';
+import { Map as MapIcon, Wifi, List, Settings, AlertTriangle, Info } from 'lucide-react';
 import { Cell, NWSAlertFeature } from '@/types';
 import { formatTimeLabel, findClosestTimestamp } from '@/utils/timestamp';
 import SlidebarControl from '../UI/SlidebarControl';
@@ -18,6 +18,7 @@ import MapSettingsPanel from '../UI/MapSettingsPanel';
 import ConnectionSettingsPanel from '../UI/ConnectionSettingsPanel';
 import CellListPanel from '../UI/CellListPanel';
 import AlertListPanel from '../UI/AlertListPanel';
+import InfoPanel from '../UI/InfoPanel';
 import ColormapLegend from '../UI/ColormapLegend';
 import { useMapContext } from './context/MapContext';
 import { useSPCLayer } from './hooks/useSPCLayer';
@@ -84,7 +85,7 @@ export default function LeafletMap() {
     const [nwsFeatures, setNwsFeatures] = useState<NWSAlertFeature[]>([]);
     const [highlightedAlertId, setHighlightedAlertId] = useState<string | null>(null);
     const [alertToZoom, setAlertToZoom] = useState<string | null>(null);
-    const [activePanel, setActivePanel] = useState<'map' | 'connection' | 'list' | 'settings' | 'alerts' | null>(null);
+    const [activePanel, setActivePanel] = useState<'map' | 'connection' | 'list' | 'settings' | 'alerts' | 'info' | null>(null);
     const [selectedCellInfo, setSelectedCellInfo] = useState<string | null>(null);
     const [focusedCellId, setFocusedCellId] = useState<string | number | null>(null);
 
@@ -890,6 +891,14 @@ export default function LeafletMap() {
                             <div className="flex-1" />
 
                             <button
+                                onClick={() => setActivePanel(activePanel === 'info' ? null : 'info')}
+                                className={`p-3 rounded-xl transition-all ${activePanel === 'info' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-blue-400 hover:bg-gray-800'}`}
+                                title="Information"
+                            >
+                                <Info size={22} />
+                            </button>
+
+                            <button
                                 onClick={() => setActivePanel(activePanel === 'settings' ? null : 'settings')}
                                 className={`p-3 rounded-xl transition-all ${activePanel === 'settings' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-blue-400 hover:bg-gray-800'}`}
                                 title="Settings"
@@ -975,6 +984,11 @@ export default function LeafletMap() {
                             <div className="p-4 text-gray-400 italic text-center text-sm">
                                 Not implemented yet
                             </div>
+                        )}
+
+                        {/* 5. INFO PANEL */}
+                        {(activePanel === 'info') && (
+                            <InfoPanel />
                         )}
 
                         {/* Default/Empty State if nothing selected? Or maybe 'connection' should be default?
