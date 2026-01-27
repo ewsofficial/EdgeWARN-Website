@@ -10,13 +10,16 @@ interface UseWSSILayerProps {
 }
 
 // WSSI Colors (Winter Storm Impact Levels)
+// WSSI Colors (Winter Storm Impact Levels)
+// Colors derived from WPC official metadata
 const WSSI_COLORS: Record<string, string> = {
-    'Limited': '#4ba6ff',   // Blue
-    'Minor': '#f5e236',     // Yellow
-    'Moderate': '#ff9b21',  // Orange
-    'Major': '#d90000',     // Red
-    'Extreme': '#b300b3',   // Purple
-    'None': 'transparent'
+    'WINTER WEATHER AREA': '#d2dfe7', // Light Blue/Gray
+    'MINOR': '#faf5a3',     // Pale Yellow
+    'MODERATE': '#f7962f',  // Orange
+    'MAJOR': '#e61f26',     // Red
+    'EXTREME': '#7853a1',   // Purple
+    'None': 'transparent',
+    'Unknown': '#999999'
 };
 
 // Map numeric WSSI codes to labels if needed. usually it's text "Limited" etc in the property "Makrb" or similar
@@ -48,28 +51,31 @@ export function useWSSILayer({
                         
                         const layer = L.geoJSON(data as any, {
                             style: (feature) => {
-                                const impact = feature?.properties?.Makrb || feature?.properties?.WSSI_Level || 'None';
-                                const color = WSSI_COLORS[impact] || '#999';
+                                const impact = feature?.properties?.impact || 'None';
+                                const color = WSSI_COLORS[impact] || WSSI_COLORS['Unknown'];
                                 
                                 return {
-                                    color: color,
-                                    weight: 1,
+                                    color: '#666', // darker outline
+                                    weight: 0.5,
                                     opacity: 0.8,
                                     fillColor: color,
-                                    fillOpacity: 0.5
+                                    fillOpacity: 0.6
                                 };
                             },
                             onEachFeature: (feature, layer) => {
                                 const props = feature.properties || {};
-                                const impact = props.Makrb || props.WSSI_Level || 'Unknown';
-                                const description = props.Rel_Impact || 'Potential winter storm impacts.';
+                                const impact = props.impact || 'Unknown';
+                                const validTime = props.valid_time || 'Unknown';
+                                const description = props.component ? `${props.component} Impact` : 'Potential winter storm impacts.';
+                                const color = WSSI_COLORS[impact] || '#999';
                                 
                                 const content = `
                                     <div class="p-2 font-sans max-w-xs">
-                                        <div class="font-bold border-b mb-1 text-sm uppercase" style="color:${WSSI_COLORS[impact] || '#fff'}">
-                                            WSSI: ${impact} Impact
+                                        <div class="font-bold border-b mb-1 text-sm uppercase" style="color:${color}; border-color: #444;">
+                                            WSSI: ${impact}
                                         </div>
                                         <div class="text-xs text-gray-200 mt-1">
+                                            <b>Valid:</b> ${validTime}<br/>
                                             ${description}
                                         </div>
                                     </div>

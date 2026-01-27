@@ -1,6 +1,6 @@
 'use client';
 
-import { MapContextProvider } from '@/components/Map/context/MapContext';
+
 
 export default function InteractiveMapLayout({
     children,

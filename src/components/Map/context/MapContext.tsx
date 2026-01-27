@@ -1,7 +1,8 @@
 'use client';
 
 import React, { createContext, useContext, ReactNode } from 'react';
-import { useMapConnection, UseMapConnectionReturn } from '../hooks/useMapConnection';
+import { useMapConnection } from '../hooks/useMapConnection';
+import { UseMapConnectionReturn } from '@/types';
 
 const MapContext = createContext<UseMapConnectionReturn | null>(null);
 

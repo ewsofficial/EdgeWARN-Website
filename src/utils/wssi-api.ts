@@ -16,17 +16,16 @@ export interface WSSIFeature {
 }
 
 // NOAA WPC ArcGIS REST API Endpoint for WSSI
-const WSSI_MAPSERVER = 'https://www.wpc.ncep.noaa.gov/wwd/wssi/gis/shp/services/outlooks/wpc_wssi/MapServer';
+const WSSI_MAPSERVER = 'https://mapservices.weather.noaa.gov/vector/rest/services/outlooks/wpc_wssi/MapServer';
 
 // Layer IDs for WSSI Overall Impacts
-// Based on typical WPC service structure (Needs verification but using standard assumption)
-// 0: Day 1 Overall
-// 1: Day 2 Overall
-// 2: Day 3 Overall
+// 1: Day 1 Overall
+// 2: Day 2 Overall
+// 3: Day 3 Overall
 const WSSI_LAYERS = {
-    1: 0,
-    2: 1,
-    3: 2
+    1: 1,
+    2: 2,
+    3: 3
 };
 
 /**
@@ -36,7 +35,9 @@ const WSSI_LAYERS = {
  */
 export async function fetchWSSI(day: 1 | 2 | 3): Promise<GeoJSON.FeatureCollection> {
     const layerId = WSSI_LAYERS[day];
-    const url = `${WSSI_MAPSERVER}/${layerId}/query?where=WSSI>0&outFields=*&f=geojson`;
+    // Use objectid>0 to get all features. 
+    // Note: ArcGIS REST requires proper encoding.
+    const url = `${WSSI_MAPSERVER}/${layerId}/query?where=objectid%3E0&outFields=*&f=geojson`;
 
     try {
         const response = await fetch(url, {

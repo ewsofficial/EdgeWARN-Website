@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Virtuoso } from 'react-virtuoso';
-import { ArrowLeft, Clock, AlertTriangle, Shield, Info, Map as MapIcon, Calendar, Layers } from 'lucide-react';
+import { ArrowLeft, Clock, AlertTriangle, Shield, Info, Map as MapIcon, Calendar } from 'lucide-react';
 import { NWSData, NWSAlertFeature } from '@/types';
 import AlertDetailsModal from '@/components/UI/AlertDetailsModal';
 import { getSeverityClasses } from '@/utils/styling';
@@ -153,7 +153,7 @@ function AlertsContent() {
                     <div className="flex flex-wrap gap-2 bg-white/5 p-1 rounded-lg border border-white/10">
                         {severities.map(sev => {
                             const isSelected = selectedSeverity === sev;
-                            const colors = sev === 'All' ? { text: 'text-white', bg: 'bg-slate-600' } : getSeverityColor(sev);
+                            const colors = sev === 'All' ? { text: 'text-white', bg: 'bg-slate-600' } : getSeverityColor(sev); // eslint-disable-line @typescript-eslint/no-unused-vars
                             // For buttons, we act slightly differently than the card colors
                             const activeClass = isSelected 
                                 ? 'bg-white text-black shadow-sm font-semibold' 

@@ -6,44 +6,9 @@ import { EWMRSAPI } from '@/utils/ewmrs-api';
 import { Colormap, LayerState } from '@/types';
 import { DEFAULT_LAYER_OPACITY, DEFAULT_PRODUCT } from '../constants';
 import { getLastUsedEndpoint, touchEndpoint, saveEndpoint, generateEndpointName } from '@/utils/endpoint-cache';
+import { UseMapConnectionReturn } from '@/types';
 
-export interface UseMapConnectionReturn {
-    // URLs
-    apiUrl: string;
-    setApiUrl: (url: string) => void;
-    ewmrsUrl: string;
-    setEwmrsUrl: (url: string) => void;
 
-    // Connection state
-    isConnected: boolean;
-    loading: boolean;
-    error: string | null;
-
-    // API refs
-    apiRef: React.MutableRefObject<EdgeWARNAPI | null>;
-    ewmrsRef: React.MutableRefObject<EWMRSAPI | null>;
-
-    // Data
-    timestamps: string[];
-    setTimestamps: React.Dispatch<React.SetStateAction<string[]>>;
-    products: string[];
-    activeLayers: Record<string, LayerState>;
-    setActiveLayers: React.Dispatch<React.SetStateAction<Record<string, LayerState>>>;
-    productTimestamps: Record<string, string[]>;
-    setProductTimestamps: React.Dispatch<React.SetStateAction<Record<string, string[]>>>;
-    colormaps: Colormap[];
-
-    // Current state
-    currentIndex: number;
-    setCurrentIndex: React.Dispatch<React.SetStateAction<number>>;
-
-    // Flash state for new data indicator
-    isFlashing: boolean;
-    setIsFlashing: (flashing: boolean) => void;
-
-    // Actions
-    handleConnect: (overrideApiUrl?: string, overrideEwmrsUrl?: string) => Promise<void>;
-}
 
 export function useMapConnection(): UseMapConnectionReturn {
     // URLs - initialize with defaults, will be updated from cache in useEffect
@@ -189,14 +154,21 @@ export function useMapConnection(): UseMapConnectionReturn {
         if (lastUsed) {
             setApiUrl(lastUsed.apiUrl);
             setEwmrsUrl(lastUsed.ewmrsUrl);
-
-            // Auto-connect (wrapped in timeout to allow state updates to settle)
-            const timer = setTimeout(() => {
-                handleConnect(lastUsed.apiUrl, lastUsed.ewmrsUrl).catch(e => console.error("Auto-connect failed", e));
-            }, 100);
-            return () => clearTimeout(timer);
         }
-    }, [handleConnect]);
+    }, []);
+    // Keep-alive ping to prevent Nginx 5min timeout
+    useEffect(() => {
+        if (!isConnected || !apiRef.current) return;
+
+        const PING_INTERVAL = 4 * 60 * 1000; // 4 minutes
+        const interval = setInterval(() => {
+            apiRef.current?.checkHealth().catch(err => {
+                console.warn("Keep-alive ping failed:", err);
+            });
+        }, PING_INTERVAL);
+
+        return () => clearInterval(interval);
+    }, [isConnected]);
 
     return {
         apiUrl,
