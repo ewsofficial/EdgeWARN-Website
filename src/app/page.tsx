@@ -4,7 +4,8 @@ import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import LightningEffect from '@/components/LightningEffect';
-import { ArrowRight, BookOpen, Github, Instagram, Zap, Shield, Globe, AlertTriangle, Clock, ChevronRight } from 'lucide-react';
+import GroundEffect from '@/components/GroundEffect';
+import { ArrowRight, BookOpen, Github, Instagram, Zap, Shield, Map, AlertTriangle, Clock, ChevronRight } from 'lucide-react';
 import { useMapContext } from '@/components/Map/context/MapContext';
 import { NWSAlertFeature } from '@/types';
 import { getSeverityClasses } from '@/utils/styling';
@@ -25,17 +26,18 @@ export default function Home() {
         if (timestamps.length > 0) {
           const latest = timestamps.sort().pop()!;
           const data = await apiRef.current.downloadNWS(latest);
-          
+
           // Simple priority sort: Extreme > Severe > Moderate > Minor
           const severityOrder = { "Extreme": 0, "Severe": 1, "Moderate": 2, "Minor": 3, "Unknown": 4 };
-          
+
           const sorted = data.data.features.sort((a: NWSAlertFeature, b: NWSAlertFeature) => {
-             const sevA = a.properties.severity as keyof typeof severityOrder;
-             const sevB = b.properties.severity as keyof typeof severityOrder;
-             return (severityOrder[sevA] ?? 4) - (severityOrder[sevB] ?? 4);
+            const sevA = a.properties.severity as keyof typeof severityOrder;
+            const sevB = b.properties.severity as keyof typeof severityOrder;
+            return (severityOrder[sevA] ?? 4) - (severityOrder[sevB] ?? 4);
           });
-          
-          setActiveAlerts(sorted.slice(0, 4));
+
+          const severeOnly = sorted.filter((a: NWSAlertFeature) => a.properties.severity === 'Extreme' || a.properties.severity === 'Severe');
+          setActiveAlerts(severeOnly.slice(0, 4));
         }
       } catch (e) {
         console.error("Failed to fetch homepage alerts", e);
@@ -57,6 +59,7 @@ export default function Home() {
       <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-blue-600/15 blur-[150px] rounded-full mix-blend-screen animate-float-reverse" />
 
       <LightningEffect />
+      <GroundEffect />
 
       <div className="relative z-10 w-full max-w-6xl px-6 py-12">
         <div className="backdrop-blur-2xl bg-white/5 border border-white/10 rounded-3xl p-8 md:p-16 shadow-2xl ring-1 ring-white/10 relative overflow-hidden group">
@@ -70,50 +73,55 @@ export default function Home() {
           <div className="flex flex-col items-center space-y-10">
 
             {/* Header Section: Logo + Text */}
-            <div className="flex flex-col md:flex-row items-center gap-8 md:gap-12 text-center md:text-left">
-              
-              {/* Logo Section with Enhanced Effects */}
-              <div className="relative group/logo flex-shrink-0">
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-400/30 to-blue-600/30 blur-3xl rounded-full opacity-50 group-hover/logo:opacity-75 transition-opacity duration-700" />
-                <div className="relative w-32 h-32 md:w-44 md:h-44 transform group-hover/logo:scale-105 transition-all duration-500 ease-out">
-                  <Image
-                    src="/assets/EdgeWARN.png"
-                    alt="EdgeWARN Logo"
-                    width={176}
-                    height={176}
-                    className="w-full h-full object-contain drop-shadow-2xl"
-                    priority
-                  />
+            <div className="flex flex-col items-center text-center space-y-6">
+
+              {/* Logo and Titles in same row */}
+              <div className="flex items-center gap-8 md:gap-12">
+                {/* Logo Section with Enhanced Effects */}
+                <div className="relative group/logo flex-shrink-0">
+                  <div className="absolute inset-0 bg-gradient-to-r from-blue-400/30 to-blue-600/30 blur-3xl rounded-full opacity-50 group-hover/logo:opacity-75 transition-opacity duration-700" />
+                  <div className="relative w-32 h-32 md:w-44 md:h-44 overflow-hidden rounded-2xl transform group-hover/logo:scale-105 transition-all duration-500 ease-out">
+                    <Image
+                      src="/assets/EdgeWARN.png"
+                      alt="EdgeWARN Logo"
+                      width={176}
+                      height={176}
+                      className="w-full h-full object-contain drop-shadow-2xl"
+                      priority
+                    />
+                  </div>
+                </div>
+
+                {/* Text Content with Improved Typography */}
+                <div className="flex flex-col justify-center h-32 md:h-44">
+                  <h1 className="text-6xl md:text-8xl font-black tracking-tight bg-gradient-to-br from-cyan-300 via-blue-500 to-blue-900 bg-clip-text text-transparent drop-shadow-sm pb-2">
+                    EdgeWARN
+                  </h1>
+                  <p className="text-2xl md:text-4xl font-semibold text-transparent bg-clip-text bg-gradient-to-r from-blue-300 via-cyan-300 to-purple-300 tracking-wide">
+                    Severe Weather Nowcasting
+                  </p>
                 </div>
               </div>
 
-              {/* Text Content with Improved Typography */}
-              <div className="space-y-4 max-w-2xl">
-                <h1 className="text-6xl md:text-8xl font-black tracking-tight bg-gradient-to-br from-cyan-300 via-blue-500 to-blue-900 bg-clip-text text-transparent drop-shadow-sm pb-2">
-                  EdgeWARN
-                </h1>
-                <p className="text-2xl md:text-3xl font-semibold text-transparent bg-clip-text bg-gradient-to-r from-blue-300 via-cyan-300 to-purple-300 tracking-wide">
-                  Severe Weather Nowcasting
-                </p>
-                <p className="text-lg text-slate-400 leading-relaxed max-w-lg mx-auto md:mx-0">
-                  High-resolution, real-time weather intelligence for communities and first responders.
-                </p>
-              </div>
+              {/* Gray text beneath */}
+              <p className="text-lg text-slate-400 leading-relaxed max-w-lg mx-auto">
+                High-resolution, real-time weather intelligence for communities and first responders.
+              </p>
             </div>
 
             {/* Feature Highlights */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-2xl">
-              <div className="backdrop-blur-sm bg-white/5 border border-white/10 rounded-xl p-4 transition-all duration-300 hover:bg-white/10 hover:border-white/20">
-                <Zap className="w-6 h-6 text-yellow-400 mx-auto mb-2" />
+              <div className="flex flex-col items-center text-center backdrop-blur-sm bg-white/5 border border-white/10 rounded-xl p-4 transition-all duration-300 hover:bg-white/10 hover:border-white/20">
+                <Zap className="w-6 h-6 text-yellow-400 mb-2" />
                 <p className="text-sm font-medium text-slate-300">Real-time Alerts</p>
               </div>
-              <div className="backdrop-blur-sm bg-white/5 border border-white/10 rounded-xl p-4 transition-all duration-300 hover:bg-white/10 hover:border-white/20">
-                <Shield className="w-6 h-6 text-blue-400 mx-auto mb-2" />
+              <div className="flex flex-col items-center text-center backdrop-blur-sm bg-white/5 border border-white/10 rounded-xl p-4 transition-all duration-300 hover:bg-white/10 hover:border-white/20">
+                <Shield className="w-6 h-6 text-blue-400 mb-2" />
                 <p className="text-sm font-medium text-slate-300">Community Safety</p>
               </div>
-              <div className="backdrop-blur-sm bg-white/5 border border-white/10 rounded-xl p-4 transition-all duration-300 hover:bg-white/10 hover:border-white/20">
-                <Globe className="w-6 h-6 text-purple-400 mx-auto mb-2" />
-                <p className="text-sm font-medium text-slate-300">Global Coverage</p>
+              <div className="flex flex-col items-center text-center backdrop-blur-sm bg-white/5 border border-white/10 rounded-xl p-4 transition-all duration-300 hover:bg-white/10 hover:border-white/20">
+                <Map className="w-6 h-6 text-purple-400 mb-2" />
+                <p className="text-sm font-medium text-slate-300">Nationwide Coverage</p>
               </div>
             </div>
 
@@ -157,52 +165,52 @@ export default function Home() {
             {/* Active Alerts Preview Section */}
             {(activeAlerts.length > 0 || loadingAlerts) && (
               <div className="w-full max-w-4xl pt-8 border-t border-white/5 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                 <div className="flex items-center justify-between mb-4 px-2">
-                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                      <AlertTriangle className="w-5 h-5 text-amber-500" />
-                      Active Alerts Preview
-                    </h3>
-                    <Link href="/alerts" className="text-sm text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors">
-                      View All <ArrowRight className="w-4 h-4" />
-                    </Link>
-                 </div>
-                 
-                 <div className="space-y-3">
-                    {loadingAlerts ? (
-                      [1,2].map(i => (
-                        <div key={i} className="h-20 rounded-xl bg-white/5 animate-pulse border border-white/5" />
-                      ))
-                    ) : (
-                      activeAlerts.map(alert => {
-                        const colors = getSeverityClasses(alert.properties.severity);
-                        return (
-                          <Link 
-                            key={alert.id} 
-                            href={`/alerts?id=${alert.id}`}
-                            className={`block relative overflow-hidden rounded-xl border ${colors.border} bg-black/20 hover:bg-white/5 transition-all duration-300 group/alert`}
-                          >
-                            <div className="flex items-center p-4 gap-4">
-                              <div className={`${colors.badge} w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0`}>
-                                <AlertTriangle className="w-6 h-6 text-white" />
-                              </div>
-                              <div className="flex-grow min-w-0">
-                                <div className="flex items-center justify-between gap-2">
-                                  <h4 className={`font-bold truncate ${colors.text}`}>{alert.properties.event}</h4>
-                                  <span className="text-xs text-slate-500 font-mono whitespace-nowrap hidden sm:block">
-                                    {new Date(alert.properties.sent).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                                  </span>
-                                </div>
-                                <p className="text-sm text-slate-400 truncate pr-4">
-                                  {alert.properties.headline || alert.properties.areaDesc}
-                                </p>
-                              </div>
-                              <ChevronRight className="w-5 h-5 text-slate-600 group-hover/alert:text-white group-hover/alert:translate-x-1 transition-all" />
+                <div className="flex items-center justify-between mb-4 px-2">
+                  <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5 text-amber-500" />
+                    Active Alerts Preview
+                  </h3>
+                  <Link href="/alerts" className="text-sm text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors">
+                    View All <ArrowRight className="w-4 h-4" />
+                  </Link>
+                </div>
+
+                <div className="space-y-3">
+                  {loadingAlerts ? (
+                    [1, 2].map(i => (
+                      <div key={i} className="h-20 rounded-xl bg-white/5 animate-pulse border border-white/5" />
+                    ))
+                  ) : (
+                    activeAlerts.map(alert => {
+                      const colors = getSeverityClasses(alert.properties.severity);
+                      return (
+                        <Link
+                          key={alert.id}
+                          href={`/alerts?id=${alert.id}`}
+                          className={`block relative overflow-hidden rounded-xl border ${colors.border} bg-black/20 hover:bg-white/5 transition-all duration-300 group/alert`}
+                        >
+                          <div className="flex items-center p-4 gap-4">
+                            <div className={`${colors.badge} w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0`}>
+                              <AlertTriangle className="w-6 h-6 text-white" />
                             </div>
-                          </Link>
-                        );
-                      })
-                    )}
-                 </div>
+                            <div className="flex-grow min-w-0">
+                              <div className="flex items-center justify-between gap-2">
+                                <h4 className={`font-bold truncate ${colors.text}`}>{alert.properties.event}</h4>
+                                <span className="text-xs text-slate-500 font-mono whitespace-nowrap hidden sm:block">
+                                  {new Date(alert.properties.sent).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                              <p className="text-sm text-slate-400 truncate pr-4">
+                                {alert.properties.headline || alert.properties.areaDesc}
+                              </p>
+                            </div>
+                            <ChevronRight className="w-5 h-5 text-slate-600 group-hover/alert:text-white group-hover/alert:translate-x-1 transition-all" />
+                          </div>
+                        </Link>
+                      );
+                    })
+                  )}
+                </div>
               </div>
             )}
 
