@@ -16,6 +16,8 @@ interface MapSettingsPanelProps {
     onToggleSpcWind?: () => void;
     showMetar?: boolean;
     onToggleMetar?: () => void;
+    metarDisplayMode?: 'temperature' | 'dewpoint' | 'wind';
+    onChangeMetarDisplayMode?: (mode: 'temperature' | 'dewpoint' | 'wind') => void;
     showNWSAlerts?: boolean;
     onToggleNWSAlerts?: () => void;
     showWpc?: boolean;
@@ -105,6 +107,8 @@ export default function MapSettingsPanel({
     onToggleWssiDay2,
     showWssiDay3 = false,
     onToggleWssiDay3,
+    metarDisplayMode = 'dewpoint',
+    onChangeMetarDisplayMode
 }: MapSettingsPanelProps) {
     const [openSections, setOpenSections] = useState<Record<string, boolean>>({
         'outlooks': true,
@@ -254,6 +258,26 @@ export default function MapSettingsPanel({
                                 colorClass="cyan"
                                 icon={Thermometer}
                             />
+                            {showMetar && onChangeMetarDisplayMode && (
+                                <div className="ml-8 mb-2 p-2 bg-gray-900/40 rounded border border-gray-700/50 flex flex-col items-center">
+                                    <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-1 font-semibold">Display Mode</div>
+                                    <div className="flex gap-1 w-full max-w-[200px]">
+                                        {['dewpoint', 'temperature', 'wind'].map((mode) => (
+                                            <button
+                                                key={mode}
+                                                onClick={() => onChangeMetarDisplayMode(mode as any)}
+                                                className={`flex-1 px-2 py-1 text-[10px] rounded uppercase font-medium transition-colors ${
+                                                    metarDisplayMode === mode
+                                                        ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                                                        : 'bg-gray-800 text-gray-500 hover:bg-gray-700 hover:text-gray-300'
+                                                }`}
+                                            >
+                                                {mode === 'dewpoint' ? 'Dewpt' : mode === 'temperature' ? 'Temp' : 'Wind'}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                             <OverlayItem
                                 label="NWS Alerts"
                                 active={!!showNWSAlerts}

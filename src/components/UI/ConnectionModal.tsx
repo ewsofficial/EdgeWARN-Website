@@ -85,7 +85,7 @@ export default function ConnectionModal({
     return (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center overflow-hidden">
             {/* Ultra-modern Backdrop */}
-            <div className="absolute inset-0 bg-black/90 backdrop-blur-xl transition-all duration-700">
+            <div className="absolute inset-0 bg-black/90 backdrop-blur-xl transition-all duration-700 animate-in fade-in duration-500">
                 {/* Animated Background Gradients */}
                 <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-blue-600/10 rounded-full blur-[120px] animate-pulse-slow"></div>
                 <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-purple-600/10 rounded-full blur-[120px] animate-pulse-slow delay-1000"></div>
@@ -95,7 +95,7 @@ export default function ConnectionModal({
             </div>
 
             {/* Main Modal Container */}
-            <div className="relative w-full max-w-[500px] m-4 perspective-1000 group/modal">
+            <div className="relative w-full max-w-[500px] m-4 perspective-1000 group/modal animate-in slide-in-from-bottom-12 fade-in duration-700 delay-100 fill-mode-forwards">
                 <div className={`relative bg-[#09090b]/80 backdrop-blur-3xl border border-white/10 rounded-[2rem] shadow-[0_0_100px_-20px_rgba(59,130,246,0.3)] overflow-hidden transition-all duration-500 hover:shadow-[0_0_120px_-20px_rgba(59,130,246,0.4)] hover:border-white/20 ${showSuccess ? 'ring-2 ring-emerald-500/50' : ''}`}>
                     
                     {/* Top Lighting Effect */}

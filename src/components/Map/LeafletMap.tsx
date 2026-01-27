@@ -77,6 +77,7 @@ export default function LeafletMap() {
     const [showSpcHail, setShowSpcHail] = useState(false);
     const [showSpcWind, setShowSpcWind] = useState(false);
     const [showMetar, setShowMetar] = useState(false);
+    const [metarDisplayMode, setMetarDisplayMode] = useState<'temperature' | 'dewpoint' | 'wind'>('dewpoint');
     const [showNWSAlerts, setShowNWSAlerts] = useState(false);
     const [showWpc, setShowWpc] = useState(false);
     const [currentCells, setCurrentCells] = useState<Cell[]>([]);
@@ -179,7 +180,8 @@ export default function LeafletMap() {
         showMetar,
         currentTimestamp: timestamps[currentIndex] || null,
         currentZoom,
-        refreshTrigger
+        refreshTrigger,
+        displayMode: metarDisplayMode
     });
 
     useNWSLayer({
@@ -917,6 +919,8 @@ export default function LeafletMap() {
                                 onToggleSpcWind={() => setShowSpcWind(!showSpcWind)}
                                 showMetar={showMetar}
                                 onToggleMetar={() => setShowMetar(!showMetar)}
+                                metarDisplayMode={metarDisplayMode}
+                                onChangeMetarDisplayMode={setMetarDisplayMode}
                                 showNWSAlerts={showNWSAlerts}
                                 onToggleNWSAlerts={() => setShowNWSAlerts(!showNWSAlerts)}
                                 showWpc={showWpc}
