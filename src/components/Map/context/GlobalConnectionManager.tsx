@@ -10,26 +10,27 @@ export default function GlobalConnectionManager() {
         apiUrl,
         ewmrsUrl,
         isConnected,
+        isAutoConnecting,
         loading,
         error,
         handleConnect
     } = useMapContext();
     const pathname = usePathname();
+    const [mounted, setMounted] = React.useState(false);
 
-    // Don't show connection modal on landing page
-    if (pathname === '/') return null;
+    React.useEffect(() => {
+        setMounted(true);
+    }, []);
 
-    // Only show modal if NOT connected.
-    // Note: useMapConnection handles checking for saved endpoints and auto-connecting.
-    // If auto-connect is in progress, loading might be true?
-    // ConnectionModal handles loading state visualization.
+    // Don't show connection modal on landing page or before mount
+    if (!mounted || pathname === '/') return null;
 
-
-
+    // Only show modal if NOT connected and NOT currently auto-connecting on mount.
+    // ConnectionModal handles loading state visualization for manual connections.
     return (
         <ConnectionModal
             key={`global-modal-${apiUrl}-${ewmrsUrl}`}
-            isOpen={!isConnected}
+            isOpen={!isConnected && !isAutoConnecting}
             loading={loading}
             error={error}
             initialApiUrl={apiUrl}

@@ -37,6 +37,7 @@ export interface UseMapConnectionReturn {
 
     // Connection state
     isConnected: boolean;
+    isAutoConnecting: boolean;
     loading: boolean;
     error: string | null;
 

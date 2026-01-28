@@ -17,6 +17,9 @@ export function useMapConnection(): UseMapConnectionReturn {
 
     // Connection state
     const [isConnected, setIsConnected] = useState(false);
+    const [isAutoConnecting, setIsAutoConnecting] = useState(() => {
+        return getLastUsedEndpoint() !== null;
+    });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -154,9 +157,13 @@ export function useMapConnection(): UseMapConnectionReturn {
         if (lastUsed) {
             setApiUrl(lastUsed.apiUrl);
             setEwmrsUrl(lastUsed.ewmrsUrl);
-            handleConnect(lastUsed.apiUrl, lastUsed.ewmrsUrl);
+            setIsAutoConnecting(true);
+            handleConnect(lastUsed.apiUrl, lastUsed.ewmrsUrl).finally(() => {
+                setIsAutoConnecting(false);
+            });
         }
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
     // Keep-alive ping to prevent Nginx 5min timeout
     useEffect(() => {
         if (!isConnected || !apiRef.current) return;
@@ -177,6 +184,7 @@ export function useMapConnection(): UseMapConnectionReturn {
         ewmrsUrl,
         setEwmrsUrl,
         isConnected,
+        isAutoConnecting,
         loading,
         error,
         apiRef,
