@@ -35,15 +35,13 @@ export default function LightningEffect() {
 
             container.appendChild(flash);
 
-            // Enhanced animation with more dramatic effect
-            const duration = random(200, 500);
-            const maxOpacity = random(0.7, 1.0);
+            // Simplified animation for better performance
+            const duration = random(200, 400);
+            const maxOpacity = random(0.6, 0.9);
             const animation = flash.animate([
                 { opacity: 0, transform: 'scale(0.8)' },
-                { opacity: maxOpacity, transform: 'scale(1.2)', offset: 0.15 },
-                { opacity: maxOpacity * 0.6, transform: 'scale(1.1)', offset: 0.3 },
-                { opacity: maxOpacity * 0.8, transform: 'scale(1.15)', offset: 0.45 },
-                { opacity: maxOpacity * 0.4, transform: 'scale(1.05)', offset: 0.6 },
+                { opacity: maxOpacity, transform: 'scale(1.1)', offset: 0.2 },
+                { opacity: maxOpacity * 0.5, transform: 'scale(1.05)', offset: 0.5 },
                 { opacity: 0, transform: 'scale(0.9)' }
             ], {
                 duration: duration,
@@ -54,13 +52,13 @@ export default function LightningEffect() {
                 flash.remove();
             };
 
-            // Create bolt with higher probability
-            if (Math.random() > 0.3) {
+            // Create bolt with reduced probability
+            if (Math.random() > 0.5) {
                 createBolt(x, y);
             }
 
-            // Sometimes create secondary flash
-            if (Math.random() > 0.7) {
+            // Reduced secondary flash frequency
+            if (Math.random() > 0.85) {
                 setTimeout(() => {
                     createSecondaryFlash(x, y);
                 }, random(50, 150));
@@ -84,10 +82,10 @@ export default function LightningEffect() {
 
             container.appendChild(flash);
 
-            const duration = random(150, 300);
+            const duration = random(150, 250);
             const animation = flash.animate([
                 { opacity: 0 },
-                { opacity: random(0.4, 0.7), offset: 0.2 },
+                { opacity: random(0.3, 0.5), offset: 0.2 },
                 { opacity: 0 }
             ], {
                 duration: duration,
@@ -110,7 +108,7 @@ export default function LightningEffect() {
 
             let pathData = `M ${curX} ${curY}`;
             const targetY = random(75, 100);
-            const segments = Math.floor(random(8, 16));
+            const segments = Math.floor(random(6, 12)); // Reduced from 8-16 to 6-12
             const yStep = (targetY - curY) / segments;
 
             for (let i = 0; i < segments; i++) {
@@ -118,8 +116,8 @@ export default function LightningEffect() {
                 curY += yStep;
                 pathData += ` L ${curX} ${curY}`;
 
-                // Add branches occasionally
-                if (Math.random() > 0.85 && i > 2 && i < segments - 2) {
+                // Reduced branch frequency
+                if (Math.random() > 0.9 && i > 2 && i < segments - 2) {
                     const branchLength = random(3, 8);
                     const branchAngle = random(-30, 30);
                     const branchX = curX + Math.sin(branchAngle * Math.PI / 180) * branchLength;
@@ -149,7 +147,7 @@ export default function LightningEffect() {
             svg.appendChild(path);
             container.appendChild(svg);
 
-            const duration = random(250, 450);
+            const duration = random(200, 350); // Reduced from 250-450 to 200-350
             const animation = svg.animate([
                 { opacity: 0, filter: 'blur(0px)' },
                 { opacity: 1, filter: 'blur(0px)', offset: 0.1 },
@@ -164,7 +162,7 @@ export default function LightningEffect() {
         }
 
         function scheduleNext() {
-            const delay = random(800, 4000);
+            const delay = random(2000, 6000); // Increased from 800-4000 to 2000-6000
             timeoutId = setTimeout(() => {
                 createFlash();
                 scheduleNext();
@@ -181,5 +179,7 @@ export default function LightningEffect() {
         };
     }, []);
 
-    return <div ref={containerRef} id="lightning-container" aria-hidden="true" />;
+    return (
+        <div ref={containerRef} id="lightning-container" className="fixed inset-0 pointer-events-none" aria-hidden="true" />
+    );
 }
