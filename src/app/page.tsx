@@ -43,6 +43,10 @@ export default function Home() {
     rootMargin: '-100px 0px',
     threshold: 0.1
   });
+  const [devsRef, devsVisible] = useIntersectionObserver<HTMLDivElement>({
+    rootMargin: '-100px 0px',
+    threshold: 0.1
+  });
 
   useEffect(() => {
     const fetchAlerts = async () => {
@@ -87,13 +91,13 @@ export default function Home() {
 
       {/* Lazy loaded effects with viewport culling */}
       <Suspense fallback={null}>
-        <ViewportCull rootMargin="200px" threshold={0.1}>
+        <ViewportCull rootMargin="50px" threshold={0.1}>
           <LightningEffect />
         </ViewportCull>
-        <ViewportCull rootMargin="200px" threshold={0.1}>
+        <ViewportCull rootMargin="50px" threshold={0.1}>
           <GroundEffect />
         </ViewportCull>
-        <ViewportCull rootMargin="200px" threshold={0.1}>
+        <ViewportCull rootMargin="50px" threshold={0.1}>
           <LakeEffect />
         </ViewportCull>
       </Suspense>
@@ -265,8 +269,7 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Developers Panel */}
-            <HomeDevelopersPanel />
+        </div>
 
             {/* Social Links with Enhanced Hover Effects */}
             <div
@@ -296,10 +299,21 @@ export default function Home() {
           </div>
         </div>
 
+        {/* Developers Section as its own Panel */}
+        <div 
+          ref={devsRef} 
+          className={`mt-8 w-full max-w-6xl animate-on-scroll ${devsVisible ? 'fade-in' : ''}`}
+        >
+          <div className="backdrop-blur-2xl bg-white/5 border border-white/10 rounded-2xl sm:rounded-3xl p-6 sm:p-10 shadow-2xl ring-1 ring-white/10 relative overflow-hidden group">
+             {/* Animated sheen effect */}
+            <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-1000 pointer-events-none" />
+            <HomeDevelopersPanel />
+          </div>
+        </div>
+
         <div className="mt-8 sm:mt-12 text-center text-[10px] sm:text-xs text-slate-600 font-medium tracking-wider uppercase">
           © {new Date().getFullYear()} Edgemont Weather Service
         </div>
-      </div>
     </main>
   );
 }
