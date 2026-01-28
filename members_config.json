@@ -1,0 +1,14 @@
+{
+    "developers": [
+        {
+            "id": "dev-1",
+            "name": "Yuchen Wei",
+            "role": "Lead Developer"
+        },
+        {
+            "id": "dev-2",
+            "name": "Sammy Reifel",
+            "role": "UI/UX Designer"
+        }
+    ]
+}
