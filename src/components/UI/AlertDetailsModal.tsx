@@ -44,10 +44,10 @@ export default function AlertDetailsModal({ isOpen, feature, onClose }: AlertDet
              />
              
              {/* Modal */}
-             <div className={`relative w-full max-w-4xl max-h-[85vh] flex flex-col bg-[#0c1218] border ${colors.border} rounded-2xl shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-5 duration-200 overflow-hidden ring-1 ring-white/10`}>
+             <div className={`relative w-full max-w-4xl max-h-[85vh] flex flex-col bg-[#0c1218] border ${colors.border} rounded-2xl shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-5 duration-300 ease-out overflow-hidden ring-1 ring-white/10`}>
                 
                 {/* Header */}
-                <div className={`flex-shrink-0 px-6 py-4 border-b border-white/5 bg-gradient-to-r from-white/5 to-transparent flex items-start justify-between gap-4 select-text`}>
+                <div className={`flex-shrink-0 px-6 py-4 border-b border-white/5 bg-gradient-to-r from-white/5 to-transparent flex items-start justify-between gap-4 select-text fade-in-delay-1 opacity-0`}>
                     <div>
                          <div className="flex items-center gap-3 mb-1">
                              <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wide border border-current ${colors.text} ${colors.badge}`}>
@@ -73,7 +73,7 @@ export default function AlertDetailsModal({ isOpen, feature, onClose }: AlertDet
                 <div className="flex-grow overflow-y-auto custom-scrollbar p-6 space-y-6 select-text">
                     
                     {/* Meta Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm fade-in-delay-2 opacity-0">
                         <div className="bg-white/5 rounded-lg p-3 border border-white/5 flex flex-col gap-1">
                              <div className="flex items-center gap-2 text-slate-400 mb-1">
                                  <Calendar size={14} />
@@ -98,7 +98,7 @@ export default function AlertDetailsModal({ isOpen, feature, onClose }: AlertDet
                     </div>
 
                     {/* Areas */}
-                    <div className="space-y-2">
+                    <div className="space-y-2 fade-in-delay-3 opacity-0">
                         <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wide flex items-center gap-2">
                             <MapIcon size={14} />
                             Affected Areas
@@ -110,7 +110,7 @@ export default function AlertDetailsModal({ isOpen, feature, onClose }: AlertDet
 
                     {/* Description */}
                     {props.description && (
-                        <div className="space-y-2">
+                        <div className="space-y-2 fade-in-delay-4 opacity-0">
                             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wide flex items-center gap-2">
                                 <Info size={14} />
                                 Details
@@ -123,7 +123,7 @@ export default function AlertDetailsModal({ isOpen, feature, onClose }: AlertDet
 
                     {/* Instructions */}
                     {props.instruction && (
-                        <div className="space-y-2">
+                        <div className="space-y-2 fade-in-delay-5 opacity-0">
                             <h3 className="text-sm font-bold text-yellow-500/80 uppercase tracking-wide flex items-center gap-2">
                                 <AlertTriangle size={14} />
                                 Instructions

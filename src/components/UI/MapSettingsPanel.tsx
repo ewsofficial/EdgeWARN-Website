@@ -395,23 +395,6 @@ export default function MapSettingsPanel({
                     )}
                 </div>
             </div>
-
-            {/* Scrollbar Style */}
-            <style jsx>{`
-                .custom-scrollbar::-webkit-scrollbar {
-                    width: 4px;
-                }
-                .custom-scrollbar::-webkit-scrollbar-track {
-                    background: transparent;
-                }
-                .custom-scrollbar::-webkit-scrollbar-thumb {
-                    background: rgba(100, 116, 139, 0.3);
-                    border-radius: 4px;
-                }
-                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-                    background: rgba(100, 116, 139, 0.5);
-                }
-            `}</style>
         </div>
     );
 }

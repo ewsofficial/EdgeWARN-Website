@@ -13,7 +13,7 @@ import { useMapContext } from '@/components/Map/context/MapContext';
 
 import { parseTimestamp } from '@/utils/timestamp';
 
-const AlertMap = dynamic(() => import('@/components/Map/AlertMap'), { 
+const AlertMap = dynamic(() => import('@/components/Map/AlertMap'), {
     ssr: false,
     loading: () => <div className="w-full h-full bg-slate-900 animate-pulse" />
 });
@@ -33,7 +33,7 @@ function AlertsContent() {
     const searchParams = useSearchParams();
     const timestampParam = searchParams.get('timestamp');
     const alertIdParam = searchParams.get('id');
-    
+
     const { apiRef, isConnected, ewmrsUrl } = useMapContext();
 
     const [loading, setLoading] = useState(true);
@@ -85,13 +85,13 @@ function AlertsContent() {
                     } else {
                         // Don't throw here if we just started, allows silent fail until real data
                         console.warn("No NWS data available");
-                        shouldFetch = false; 
+                        shouldFetch = false;
                     }
                 } else {
                     // Specific timestamp
-                   if (targetTs === lastFetchedTsRef.current) {
+                    if (targetTs === lastFetchedTsRef.current) {
                         shouldFetch = false;
-                   }
+                    }
                 }
 
                 if (shouldFetch && targetTs) {
@@ -103,7 +103,7 @@ function AlertsContent() {
             } catch (err) {
                 console.error("Failed to load alerts", err);
                 let msg = err instanceof Error ? err.message : "Failed to load alerts";
-                
+
                 // User-friendly error mapping
                 if (msg.includes("500")) {
                     msg = "Server Error (500). The NWS data service may be experiencing issues.";
@@ -133,31 +133,31 @@ function AlertsContent() {
             });
         } catch { return iso; }
     };
-    
+
     const formatHeaderTimestamp = (ts: string | null) => {
         if (!ts) return 'Loading...';
         const date = parseTimestamp(ts);
         if (!date) return ts;
         return date.toLocaleString('en-US', {
-             weekday: 'short',
-             month: 'short', 
-             day: 'numeric', 
-             hour: 'numeric', 
-             minute: '2-digit',
-             timeZoneName: 'short'
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            timeZoneName: 'short'
         });
     };
 
     const severities = ['All', 'Extreme', 'Severe', 'Moderate', 'Minor', 'Unknown'];
-    
-    const filteredFeatures = data?.data.features.filter(f => 
+
+    const filteredFeatures = data?.data.features.filter(f =>
         selectedSeverity === 'All' || (f.properties.severity || 'Unknown') === selectedSeverity
     ) || [];
 
     return (
         <div className="min-h-screen bg-[#07112a] text-slate-200 p-4 md:p-8">
             <div className="max-w-6xl mx-auto space-y-6">
-                
+
                 {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
@@ -175,17 +175,17 @@ function AlertsContent() {
                             </p>
                         </div>
                     </div>
-                    
+
                     {/* Severity Filter */}
                     <div className="flex flex-wrap gap-2 bg-white/5 p-1 rounded-lg border border-white/10">
                         {severities.map(sev => {
                             const isSelected = selectedSeverity === sev;
                             const colors = sev === 'All' ? { text: 'text-white', bg: 'bg-slate-600' } : getSeverityColor(sev); // eslint-disable-line @typescript-eslint/no-unused-vars
                             // For buttons, we act slightly differently than the card colors
-                            const activeClass = isSelected 
-                                ? 'bg-white text-black shadow-sm font-semibold' 
+                            const activeClass = isSelected
+                                ? 'bg-white text-black shadow-sm font-semibold'
                                 : 'text-slate-400 hover:text-white hover:bg-white/10';
-                            
+
                             return (
                                 <button
                                     key={sev}
@@ -223,7 +223,7 @@ function AlertsContent() {
                             Footer: () => (
                                 visibleCount < filteredFeatures.length ? (
                                     <div className="py-8 flex justify-center">
-                                        <button 
+                                        <button
                                             onClick={() => setVisibleCount(prev => prev + 10)}
                                             className="px-8 py-3 bg-white/5 hover:bg-white/10 active:bg-white/15 border border-white/10 rounded-full text-slate-300 hover:text-white font-medium transition-all uppercase tracking-wide text-xs group"
                                         >
@@ -240,15 +240,15 @@ function AlertsContent() {
                         itemContent={(index, feature) => {
                             const props = feature.properties;
                             const colors = getSeverityClasses(props.severity);
-                            
+
                             return (
-                                <div className="pb-4">
-                                    <div 
+                                <div className="pb-4 fade-in">
+                                    <div
                                         onClick={() => setSelectedAlert(feature)}
                                         className={`relative overflow-hidden rounded-xl border ${colors.border} ${colors.bg} backdrop-blur-sm transition-transform hover:scale-[1.005] duration-200 cursor-pointer`}
                                     >
                                         <div className="p-5 flex flex-col md:flex-row gap-6">
-                                            
+
                                             {/* Left: Severity & Icon */}
                                             <div className="flex-shrink-0 flex md:flex-col items-center gap-3 md:w-32 md:border-r border-white/10 pr-0 md:pr-6">
                                                 <div className={`${colors.badge} w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg`}>
@@ -268,17 +268,17 @@ function AlertsContent() {
                                                     <div>
                                                         <h2 className="text-2xl font-bold text-white mb-1">{props.event}</h2>
                                                         <p className="text-slate-400 text-sm flex items-center gap-1">
-                                                            <Info className="w-4 h-4" /> 
+                                                            <Info className="w-4 h-4" />
                                                             {props.headline}
                                                         </p>
                                                     </div>
                                                     <div className="flex flex-wrap gap-2">
-                                                         <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-mono text-slate-300">
+                                                        <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-mono text-slate-300">
                                                             {props.status}
-                                                         </span>
-                                                         <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-mono text-slate-300">
+                                                        </span>
+                                                        <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-mono text-slate-300">
                                                             {props.urgency}
-                                                         </span>
+                                                        </span>
                                                     </div>
                                                 </div>
 
@@ -308,18 +308,18 @@ function AlertsContent() {
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    
+
                                                     {/* Map Section */}
-                                                <div 
-                                                    className="h-48 lg:h-auto min-h-[200px] rounded-lg overflow-hidden border border-white/10 relative z-0 shadow-inner bg-black/40"
-                                                    onClick={(e) => e.stopPropagation()}
-                                                >
-                                                    <AlertMap 
-                                                        feature={feature} 
-                                                        currentTimestamp={currentTimestamp} 
-                                                        ewmrsUrl={ewmrsUrl}
-                                                    />
-                                                </div>
+                                                    <div
+                                                        className="h-48 lg:h-auto min-h-[200px] rounded-lg overflow-hidden border border-white/10 relative z-0 shadow-inner bg-black/40"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
+                                                        <AlertMap
+                                                            feature={feature}
+                                                            currentTimestamp={currentTimestamp}
+                                                            ewmrsUrl={ewmrsUrl}
+                                                        />
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -331,10 +331,10 @@ function AlertsContent() {
                 )}
             </div>
 
-            <AlertDetailsModal 
-                isOpen={!!selectedAlert} 
-                feature={selectedAlert} 
-                onClose={() => setSelectedAlert(null)} 
+            <AlertDetailsModal
+                isOpen={!!selectedAlert}
+                feature={selectedAlert}
+                onClose={() => setSelectedAlert(null)}
             />
         </div>
     );

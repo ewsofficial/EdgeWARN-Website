@@ -6,7 +6,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Map as MapIcon, Wifi, List, Settings, AlertTriangle, Info } from 'lucide-react';
+import { Map as MapIcon, Wifi, List, Settings, AlertTriangle, Info, Users } from 'lucide-react';
 import { Cell, NWSAlertFeature } from '@/types';
 import { formatTimeLabel, findClosestTimestamp } from '@/utils/timestamp';
 import SlidebarControl from '../UI/SlidebarControl';
@@ -911,6 +911,8 @@ export default function LeafletMap() {
                                 <Info size={22} />
                             </button>
 
+
+
                             <button
                                 onClick={() => setActivePanel(activePanel === 'settings' ? null : 'settings')}
                                 className={`p-3 rounded-xl transition-all ${activePanel === 'settings' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-blue-400 hover:bg-gray-800'}`}
@@ -1003,6 +1005,8 @@ export default function LeafletMap() {
                         {(activePanel === 'info') && (
                             <InfoPanel />
                         )}
+
+
 
                         {/* Default/Empty State if nothing selected? Or maybe 'connection' should be default?
                           If activePanel is null, sidebar is empty?

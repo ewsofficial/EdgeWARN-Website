@@ -135,12 +135,12 @@ export function useMapConnection(): UseMapConnectionReturn {
         } catch (err) {
             let message = (err as Error).message;
             if (message === 'Failed to fetch' || message.includes('Network request failed')) {
-               if (window.location.protocol === 'https:' && 
-                  (finalApiUrl.toLowerCase().startsWith('https:') || finalEwmrsUrl.toLowerCase().startsWith('https:'))) {
-                   message = 'Network error. If using self-signed certificates, you may need to open the API URL in a new tab and accept the warning.';
-               } else {
-                   message = 'Network error. Please check if the API server is running and accessible.';
-               }
+                if (window.location.protocol === 'https:' &&
+                    (finalApiUrl.toLowerCase().startsWith('https:') || finalEwmrsUrl.toLowerCase().startsWith('https:'))) {
+                    message = 'Network error. If using self-signed certificates, you may need to open the API URL in a new tab and accept the warning.';
+                } else {
+                    message = 'Network error. Please check if the API server is running and accessible.';
+                }
             }
             setError(message);
         } finally {
@@ -154,8 +154,9 @@ export function useMapConnection(): UseMapConnectionReturn {
         if (lastUsed) {
             setApiUrl(lastUsed.apiUrl);
             setEwmrsUrl(lastUsed.ewmrsUrl);
+            handleConnect(lastUsed.apiUrl, lastUsed.ewmrsUrl);
         }
-    }, []);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
     // Keep-alive ping to prevent Nginx 5min timeout
     useEffect(() => {
         if (!isConnected || !apiRef.current) return;
