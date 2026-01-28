@@ -292,19 +292,19 @@ export function useNWSLayer({
                     };
 
                     const popup = `
-                        <div class="nws-popup-content" style="font-family:sans-serif;font-size:13px;line-height:1.4;">
-                            <div class="nws-popup-header" style="background:linear-gradient(135deg, ${colors.bg}, transparent);border-left:4px solid ${colors.border};padding:8px 12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
-                                <span class="nws-event-type" style="color:${colors.border};font-weight:700;font-size:14px;text-transform:uppercase;">${props.event}</span>
-                                <span class="nws-severity-badge" style="background:${colors.border};color:white;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;">${severity}</span>
+                        <div class="nws-popup-content" style="--alert-color: ${colors.border}; --alert-bg: ${colors.bg};">
+                            <div class="nws-popup-header">
+                                <span class="nws-event-type">${props.event}</span>
+                                <span class="nws-severity-badge">${severity}</span>
                             </div>
-                            <div class="nws-popup-body" style="padding:0 4px;">
-                                <div class="nws-headline" style="font-weight:600;margin-bottom:8px;color:#e5e7eb;">${props.headline}</div>
-                                <div class="nws-info-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;font-size:12px;color:#9ca3af;background:rgba(255,255,255,0.05);padding:8px;border-radius:4px;">
-                                    <div><span style="display:block;font-size:10px;text-transform:uppercase;opacity:0.7;">Effective</span> <span style="color:#d1d5db;">${formatTime(props.effective)}</span></div>
-                                    <div><span style="display:block;font-size:10px;text-transform:uppercase;opacity:0.7;">Expires</span> <span style="color:#d1d5db;">${formatTime(props.expires)}</span></div>
-                                    <div style="grid-column:1/-1;"><span style="display:block;font-size:10px;text-transform:uppercase;opacity:0.7;">Sender</span> <span style="color:#d1d5db;">${props.senderName}</span></div>
+                            <div class="nws-popup-body">
+                                <div class="nws-headline">${props.headline}</div>
+                                <div class="nws-times">
+                                    <div><strong>Effective</strong> ${formatTime(props.effective)}</div>
+                                    <div><strong>Expires</strong> ${formatTime(props.expires)}</div>
+                                    <div style="margin-top:4px;"><strong>Sender</strong> ${props.senderName}</div>
                                 </div>
-                                <div class="nws-areas" style="font-size:12px;color:#9ca3af;max-height:60px;overflow-y:auto;"><strong>Areas:</strong> ${props.areaDesc}</div>
+                                <div class="nws-areas"><strong>Areas:</strong> ${props.areaDesc}</div>
                             </div>
                         </div>
                     `;
