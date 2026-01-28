@@ -157,13 +157,25 @@ export class EdgeWARNAPI {
      * @returns METAR data
      */
     async downloadMetar(timestamp: string): Promise<MetarData> {
-        const response = await fetch(`${this.baseUrl}/data/download?type=metar&timestamp=${encodeURIComponent(timestamp)}`, {
+        // Validation/Normalization: Server requires YYYYMMDD-HHMM00
+        let finalTimestamp = timestamp;
+        if (/^\d{8}-\d{6}$/.test(timestamp) && !timestamp.endsWith('00')) {
+            console.warn(`[EdgeWARNAPI] Normalizing METAR timestamp '${timestamp}' to end with 00 seconds.`);
+            finalTimestamp = timestamp.substring(0, 13) + '00';
+        }
+
+        const response = await fetch(`${this.baseUrl}/data/download?type=metar&timestamp=${encodeURIComponent(finalTimestamp)}`, {
             headers: { 'Accept': 'application/json' },
             cache: 'no-store'
         });
 
         if (!response.ok) {
-            throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+            let errorMsg = `Server returned ${response.status}: ${response.statusText}`;
+            try {
+                const body = await response.json();
+                if (body.error) errorMsg += `: ${body.error}`;
+            } catch (e) { /* ignore */ }
+            throw new Error(errorMsg);
         }
 
         return await response.json();
@@ -201,13 +213,31 @@ export class EdgeWARNAPI {
      * @returns NWS data
      */
     async downloadNWS(timestamp: string): Promise<NWSData> {
-        const response = await fetch(`${this.baseUrl}/data/download?type=nws&timestamp=${encodeURIComponent(timestamp)}`, {
+        // Validation/Normalization: Server requires YYYYMMDD-HHMM00
+        // If the timestamp has seconds != 00, normalize it to prevent 400 Bad Request
+        let finalTimestamp = timestamp;
+        if (/^\d{8}-\d{6}$/.test(timestamp) && !timestamp.endsWith('00')) {
+            console.warn(`[EdgeWARNAPI] Normalizing NWS timestamp '${timestamp}' to end with 00 seconds as required by server.`);
+            finalTimestamp = timestamp.substring(0, 13) + '00';
+        }
+
+        const response = await fetch(`${this.baseUrl}/data/download?type=nws&timestamp=${encodeURIComponent(finalTimestamp)}`, {
             headers: { 'Accept': 'application/json' },
             cache: 'no-store'
         });
 
         if (!response.ok) {
-            throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+            let errorMsg = `Server returned ${response.status}: ${response.statusText}`;
+            try {
+                // Try to parse error details from JSON body
+                const body = await response.json();
+                if (body.error) {
+                    errorMsg += `: ${body.error}`;
+                }
+            } catch (e) {
+                // Ignore JSON parse error, stick to status text
+            }
+            throw new Error(errorMsg);
         }
 
         return await response.json();

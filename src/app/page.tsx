@@ -185,7 +185,7 @@ export default function Home() {
               </Link>
 
               <Link
-                href="/alerts"
+                href="/alerts/official"
                 className="group relative inline-flex items-center justify-center px-6 sm:px-10 py-3 sm:py-4 text-base sm:text-lg font-bold text-amber-400 bg-amber-950/30 hover:bg-amber-900/40 border border-amber-500/30 hover:border-amber-500/50 rounded-xl transition-all duration-300 backdrop-blur-md"
               >
                 <span className="flex items-center gap-2 sm:gap-3">
@@ -218,7 +218,7 @@ export default function Home() {
                   <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500" />
                   Active Alerts Preview
                 </h3>
-                <Link href="/alerts" className="text-sm text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors">
+                <Link href="/alerts/official" className="text-sm text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors">
                   View All <ArrowRight className="w-4 h-4" />
                 </Link>
               </div>
@@ -234,7 +234,7 @@ export default function Home() {
                     return (
                       <Link
                         key={alert.id}
-                        href={`/alerts?id=${alert.id}`}
+                        href={`/alerts/official?id=${alert.id}`}
                         className={`block relative overflow-hidden rounded-xl border ${colors.border} bg-black/20 hover:bg-white/5 transition-all duration-300 group/alert`}
                       >
                         <div className="flex items-center p-3 sm:p-4 gap-3 sm:gap-4">

@@ -1,5 +1,6 @@
 
 import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import L from 'leaflet';
 import { findClosestTimestamp } from '@/utils/timestamp';
 import { ZoneResolver } from '@/utils/nws-geoloader';
@@ -26,6 +27,7 @@ export function useNWSLayer({
     highlightedAlertId,
     focusAlertId
 }: UseNWSLayerProps) {
+    const router = useRouter();
     const nwsLayerRef = useRef<L.LayerGroup | null>(null);
     const lastNwsTsRef = useRef<string | null>(null);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -345,6 +347,14 @@ export function useNWSLayer({
 
                     // Store feature for highlighting lookup
                     (layer as any).alertData = feature;
+
+                    layer.on('click', (e) => {
+                        L.DomEvent.stopPropagation(e);
+                        const id = props.id || feature.id;
+                        if (id) {
+                            router.push(`/alerts/official?id=${id}&timestamp=${currentTimestamp || 'latest'}`);
+                        }
+                    });
 
                     layer.bindPopup(popup, {
                         closeButton: true,

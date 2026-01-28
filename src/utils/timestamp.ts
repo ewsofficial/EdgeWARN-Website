@@ -14,7 +14,7 @@ export interface TimestampStr {
  * @returns Date object or null if invalid
  */
 export function parseTimestamp(ts: string): Date | null {
-    const match = ts.match(/(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})/);
+    const match = ts.trim().match(/^(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})$/);
     if (!match) return null;
     return new Date(
         parseInt(match[1]),
