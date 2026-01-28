@@ -135,11 +135,11 @@ export default function LakeEffect() {
         // Add particles
         particles.forEach(p => svg.appendChild(p.element));
 
-        // Animation loop with reduced frame rate (25fps instead of 30fps)
+        // Animation loop with reduced frame rate (20fps for background)
         let animationFrame: number;
         let time = 0;
         let lastTime = performance.now();
-        const targetFPS = 25;
+        const targetFPS = 20;
         const frameInterval = 1000 / targetFPS;
 
         const animate = (currentTime: number) => {
@@ -147,11 +147,11 @@ export default function LakeEffect() {
 
             if (deltaTime >= frameInterval) {
                 lastTime = currentTime - (deltaTime % frameInterval);
-                time += 0.04; // ~25fps increment
+                time += 0.05; // ~20fps increment
 
                 // Update wave layers
                 waveLayers.forEach(layer => {
-                    const path = generateWavePath(layer, time * layer.speed * 25);
+                    const path = generateWavePath(layer, time * layer.speed * 20);
                     layer.pathElement.setAttribute('d', path);
                 });
 

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type RefObject } from 'react';
+import { observerManager } from '@/utils/observer';
 
 export interface IntersectionObserverOptions {
     root?: null;
@@ -13,24 +14,28 @@ export function useIntersectionObserver<T extends HTMLElement>(
     const [isVisible, setIsVisible] = useState(false);
 
     useEffect(() => {
-        const observer = new IntersectionObserver(([entry]) => {
-            if (entry.isIntersecting) {
-                setIsVisible(true);
-                observer.unobserve(entry.target);
-            }
-        }, options);
-
         const currentRef = ref.current;
-        if (currentRef) {
-            observer.observe(currentRef);
-        }
+        if (!currentRef) return;
+
+        const config = {
+            rootMargin: options.rootMargin || '0px',
+            threshold: options.threshold || 0
+        };
+
+        observerManager.observe(currentRef, config, (isIntersecting) => {
+            if (isIntersecting) {
+                setIsVisible(true);
+                // For trigger-once behavior, we can unobserve immediately if needed
+                // But the hook signature allows for continuous monitoring if we don't unobserve here.
+                // The original code unobserved immediately.
+                observerManager.unobserve(currentRef, config);
+            }
+        });
 
         return () => {
-            if (currentRef) {
-                observer.unobserve(currentRef);
-            }
+            observerManager.unobserve(currentRef, config);
         };
-    }, [options]);
+    }, [options.rootMargin, options.threshold]);
 
     return [ref, isVisible];
 }

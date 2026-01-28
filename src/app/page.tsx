@@ -14,7 +14,6 @@ import ViewportCull from '@/components/UI/ViewportCull';
 // Lazy load effect components
 const LightningEffect = lazy(() => import('@/components/LightningEffect'));
 const GroundEffect = lazy(() => import('@/components/GroundEffect'));
-const LakeEffect = lazy(() => import('@/components/LakeEffect'));
 
 export default function Home() {
   const { apiRef, isConnected } = useMapContext();
@@ -84,7 +83,7 @@ export default function Home() {
   return (
     <main className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden bg-[#050816] text-white selection:bg-purple-500/30">
       {/* Advanced Background Effects */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_50%,rgba(139,92,246,0.15),rgba(0,0,0,0))] animate-pulse" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_50%,rgba(139,92,246,0.15),rgba(0,0,0,0))]" />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_80%,rgba(59,130,246,0.12),rgba(0,0,0,0))]" />
       <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-purple-600/15 blur-[150px] rounded-full mix-blend-screen animate-float" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-blue-600/15 blur-[150px] rounded-full mix-blend-screen animate-float-reverse" />
@@ -97,13 +96,10 @@ export default function Home() {
         <ViewportCull rootMargin="50px" threshold={0.1}>
           <GroundEffect />
         </ViewportCull>
-        <ViewportCull rootMargin="50px" threshold={0.1}>
-          <LakeEffect />
-        </ViewportCull>
       </Suspense>
 
       <div className="relative z-10 w-full max-w-6xl px-4 sm:px-6 py-8 sm:py-12">
-        <div className="backdrop-blur-2xl bg-white/5 border border-white/10 rounded-2xl sm:rounded-3xl p-4 sm:p-8 md:p-16 shadow-2xl ring-1 ring-white/10 relative overflow-hidden group">
+        <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl sm:rounded-3xl p-4 sm:p-8 md:p-16 shadow-2xl ring-1 ring-white/10 relative overflow-hidden group will-change-transform">
 
           {/* Animated sheen effect */}
           <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-1000 pointer-events-none" />
@@ -299,12 +295,11 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Developers Section as its own Panel */}
         <div 
           ref={devsRef} 
           className={`mt-8 w-full max-w-6xl animate-on-scroll ${devsVisible ? 'fade-in' : ''}`}
         >
-          <div className="backdrop-blur-2xl bg-white/5 border border-white/10 rounded-2xl sm:rounded-3xl p-6 sm:p-10 shadow-2xl ring-1 ring-white/10 relative overflow-hidden group">
+          <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl sm:rounded-3xl p-6 sm:p-10 shadow-2xl ring-1 ring-white/10 relative overflow-hidden group will-change-transform">
              {/* Animated sheen effect */}
             <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-1000 pointer-events-none" />
             <HomeDevelopersPanel />

@@ -1,6 +1,5 @@
-'use client';
-
 import { useEffect, useRef, useState } from 'react';
+import { observerManager } from '@/utils/observer';
 
 interface ViewportCullProps {
   children: React.ReactNode;
@@ -16,17 +15,12 @@ export default function ViewportCull({ children, rootMargin = '0px', threshold =
     const container = containerRef.current;
     if (!container) return;
 
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        setIsVisible(entry.isIntersecting);
-      },
-      { rootMargin, threshold }
-    );
-
-    observer.observe(container);
+    observerManager.observe(container, { rootMargin, threshold }, (isIntersecting) => {
+      setIsVisible(isIntersecting);
+    });
 
     return () => {
-      observer.disconnect();
+      observerManager.unobserve(container, { rootMargin, threshold });
     };
   }, [rootMargin, threshold]);
 

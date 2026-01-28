@@ -9,173 +9,164 @@ export default function LightningEffect() {
         const container = containerRef.current;
         if (!container) return;
 
-        let timeoutId: NodeJS.Timeout;
+        // Pools for DOM recycling
+        const flashPool: HTMLDivElement[] = [];
+        const boltPool: SVGSVGElement[] = [];
+
+        let animationFrameId: number;
+        let lastLightningTime = 0;
+        const LIGHTNING_INTERVAL_MIN = 3000;
+        const LIGHTNING_INTERVAL_MAX = 8000;
+        let nextLightningDelay = random(LIGHTNING_INTERVAL_MIN, LIGHTNING_INTERVAL_MAX);
 
         function random(min: number, max: number) {
             return Math.random() * (max - min) + min;
         }
 
-        function createFlash() {
-            if (!container) return;
-
+        function getFlash(): HTMLDivElement {
+            if (flashPool.length > 0) {
+                const flash = flashPool.pop()!;
+                flash.style.display = 'block';
+                return flash;
+            }
             const flash = document.createElement('div');
             flash.classList.add('lightning-flash');
-
-            // Random position with better distribution
-            const x = random(10, 90);
-            const y = random(5, 85);
-
-            // Random size with more variety
-            const size = random(400, 1200);
-
-            flash.style.left = `${x}%`;
-            flash.style.top = `${y}%`;
-            flash.style.width = `${size}px`;
-            flash.style.height = `${size}px`;
-
-            container.appendChild(flash);
-
-            // Simplified animation for better performance
-            const duration = random(200, 400);
-            const maxOpacity = random(0.6, 0.9);
-            const animation = flash.animate([
-                { opacity: 0, transform: 'scale(0.8)' },
-                { opacity: maxOpacity, transform: 'scale(1.1)', offset: 0.2 },
-                { opacity: maxOpacity * 0.5, transform: 'scale(1.05)', offset: 0.5 },
-                { opacity: 0, transform: 'scale(0.9)' }
-            ], {
-                duration: duration,
-                easing: 'cubic-bezier(0.4, 0, 0.2, 1)'
-            });
-
-            animation.onfinish = () => {
-                flash.remove();
-            };
-
-            // Create bolt with reduced probability
-            if (Math.random() > 0.5) {
-                createBolt(x, y);
-            }
-
-            // Reduced secondary flash frequency
-            if (Math.random() > 0.85) {
-                setTimeout(() => {
-                    createSecondaryFlash(x, y);
-                }, random(50, 150));
-            }
+            return flash;
         }
 
-        function createSecondaryFlash(xPercent: number, yPercent: number) {
-            if (!container) return;
-
-            const flash = document.createElement('div');
-            flash.classList.add('lightning-flash');
-
-            const offsetX = random(-15, 15);
-            const offsetY = random(-10, 10);
-            const size = random(200, 600);
-
-            flash.style.left = `${xPercent + offsetX}%`;
-            flash.style.top = `${yPercent + offsetY}%`;
-            flash.style.width = `${size}px`;
-            flash.style.height = `${size}px`;
-
-            container.appendChild(flash);
-
-            const duration = random(150, 250);
-            const animation = flash.animate([
-                { opacity: 0 },
-                { opacity: random(0.3, 0.5), offset: 0.2 },
-                { opacity: 0 }
-            ], {
-                duration: duration,
-                easing: 'ease-out'
-            });
-
-            animation.onfinish = () => flash.remove();
+        function recycleFlash(flash: HTMLDivElement) {
+            flash.style.display = 'none';
+            flashPool.push(flash);
         }
 
-        function createBolt(xPercent: number, yPercent: number) {
-            if (!container) return;
+        function getBolt(): SVGSVGElement {
+            if (boltPool.length > 0) {
+                const bolt = boltPool.pop()!;
+                bolt.style.display = 'block';
+                return bolt;
+            }
             const svgNS = "http://www.w3.org/2000/svg";
             const svg = document.createElementNS(svgNS, "svg");
             svg.classList.add("lightning-bolt");
             svg.setAttribute("viewBox", "0 0 100 100");
             svg.setAttribute("preserveAspectRatio", "none");
-
-            let curX = xPercent;
-            let curY = yPercent < 20 ? yPercent : random(0, 25);
-
-            let pathData = `M ${curX} ${curY}`;
-            const targetY = random(75, 100);
-            const segments = Math.floor(random(6, 12)); // Reduced from 8-16 to 6-12
-            const yStep = (targetY - curY) / segments;
-
-            for (let i = 0; i < segments; i++) {
-                curX += random(-8, 8);
-                curY += yStep;
-                pathData += ` L ${curX} ${curY}`;
-
-                // Reduced branch frequency
-                if (Math.random() > 0.9 && i > 2 && i < segments - 2) {
-                    const branchLength = random(3, 8);
-                    const branchAngle = random(-30, 30);
-                    const branchX = curX + Math.sin(branchAngle * Math.PI / 180) * branchLength;
-                    const branchY = curY + Math.cos(branchAngle * Math.PI / 180) * branchLength;
-                    pathData += ` L ${branchX} ${branchY} L ${curX} ${curY}`;
-                }
-            }
-
-            const path = document.createElementNS(svgNS, "path");
-            path.setAttribute("d", pathData);
-            path.setAttribute("stroke", "rgba(200, 230, 255, 0.95)");
-            path.setAttribute("stroke-width", "0.6");
-            path.setAttribute("fill", "none");
-            path.setAttribute("stroke-linecap", "round");
-            path.setAttribute("stroke-linejoin", "round");
-
-            // Add glow effect
+            
             const glowPath = document.createElementNS(svgNS, "path");
-            glowPath.setAttribute("d", pathData);
+            glowPath.classList.add('glow-path');
             glowPath.setAttribute("stroke", "rgba(100, 180, 255, 0.4)");
             glowPath.setAttribute("stroke-width", "2.5");
             glowPath.setAttribute("fill", "none");
             glowPath.setAttribute("stroke-linecap", "round");
             glowPath.setAttribute("stroke-linejoin", "round");
 
+            const mainPath = document.createElementNS(svgNS, "path");
+            mainPath.classList.add('main-path');
+            mainPath.setAttribute("stroke", "rgba(200, 230, 255, 0.95)");
+            mainPath.setAttribute("stroke-width", "0.6");
+            mainPath.setAttribute("fill", "none");
+            mainPath.setAttribute("stroke-linecap", "round");
+            mainPath.setAttribute("stroke-linejoin", "round");
+
             svg.appendChild(glowPath);
-            svg.appendChild(path);
-            container.appendChild(svg);
+            svg.appendChild(mainPath);
+            return svg;
+        }
 
-            const duration = random(200, 350); // Reduced from 250-450 to 200-350
+        function recycleBolt(bolt: SVGSVGElement) {
+            bolt.style.display = 'none';
+            boltPool.push(bolt);
+        }
+
+        function triggerLightning() {
+            if (!container) return;
+
+            const flash = getFlash();
+            const x = random(10, 90);
+            const y = random(5, 85);
+            const size = random(400, 1000);
+
+            flash.style.left = `${x}%`;
+            flash.style.top = `${y}%`;
+            flash.style.width = `${size}px`;
+            flash.style.height = `${size}px`;
+
+            if (!flash.parentElement) {
+                container.appendChild(flash);
+            }
+
+            const duration = random(200, 400);
+            const maxOpacity = random(0.5, 0.8);
+            const animation = flash.animate([
+                { opacity: 0, transform: 'scale(0.8)' },
+                { opacity: maxOpacity, transform: 'scale(1.1)', offset: 0.2 },
+                { opacity: 0, transform: 'scale(0.9)' }
+            ], { duration, easing: 'ease-out' });
+
+            animation.onfinish = () => recycleFlash(flash);
+
+            if (Math.random() > 0.6) {
+                createBolt(x, y);
+            }
+        }
+
+        function createBolt(xPercent: number, yPercent: number) {
+            const svg = getBolt();
+            const glowPath = svg.querySelector('.glow-path') as SVGPathElement;
+            const mainPath = svg.querySelector('.main-path') as SVGPathElement;
+
+            let curX = xPercent;
+            let curY = yPercent < 20 ? yPercent : random(0, 20);
+            let pathData = `M ${curX} ${curY}`;
+
+            const targetY = random(80, 100);
+            const segments = Math.floor(random(4, 8));
+            const yStep = (targetY - curY) / segments;
+
+            for (let i = 0; i < segments; i++) {
+                curX += random(-6, 6);
+                curY += yStep;
+                pathData += ` L ${curX} ${curY}`;
+            }
+
+            glowPath.setAttribute("d", pathData);
+            mainPath.setAttribute("d", pathData);
+
+            if (container && !svg.parentElement) {
+                container.appendChild(svg);
+            }
+
+            const duration = random(150, 300);
             const animation = svg.animate([
-                { opacity: 0, filter: 'blur(0px)' },
-                { opacity: 1, filter: 'blur(0px)', offset: 0.1 },
-                { opacity: 0.8, filter: 'blur(1px)', offset: 0.5 },
-                { opacity: 0, filter: 'blur(2px)' }
-            ], {
-                duration: duration,
-                easing: 'ease-out'
-            });
+                { opacity: 0 },
+                { opacity: 1, offset: 0.1 },
+                { opacity: 0 }
+            ], { duration, easing: 'ease-out' });
 
-            animation.onfinish = () => svg.remove();
+            animation.onfinish = () => recycleBolt(svg);
         }
 
-        function scheduleNext() {
-            const delay = random(2000, 6000); // Increased from 800-4000 to 2000-6000
-            timeoutId = setTimeout(() => {
-                createFlash();
-                scheduleNext();
-            }, delay);
+        function animate(currentTime: number) {
+            if (!lastLightningTime) lastLightningTime = currentTime;
+            
+            const elapsed = currentTime - lastLightningTime;
+            if (elapsed > nextLightningDelay) {
+                triggerLightning();
+                lastLightningTime = currentTime;
+                nextLightningDelay = random(LIGHTNING_INTERVAL_MIN, LIGHTNING_INTERVAL_MAX);
+            }
+
+            animationFrameId = requestAnimationFrame(animate);
         }
 
-        scheduleNext();
+        animationFrameId = requestAnimationFrame(animate);
 
         return () => {
-            clearTimeout(timeoutId);
+            cancelAnimationFrame(animationFrameId);
             if (container) {
-                container.innerHTML = ''; // Cleanup all flashes
+                container.innerHTML = '';
             }
+            flashPool.length = 0;
+            boltPool.length = 0;
         };
     }, []);
 

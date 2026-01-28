@@ -106,7 +106,7 @@ export default function GroundEffect() {
     return (
         <svg
             ref={svgRef}
-            className="fixed bottom-[120px] left-0 w-full h-[100px] pointer-events-none"
+            className="fixed bottom-0 left-0 w-full h-[100px] pointer-events-none"
             viewBox="0 0 100 100"
             preserveAspectRatio="none"
             aria-hidden="true"
