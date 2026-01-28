@@ -76,6 +76,11 @@ export function useSPCLayer({
                                     closeButton: false,
                                     maxWidth: 300
                                 });
+
+                                layer.bindTooltip(`${label}`, {
+                                    sticky: true,
+                                    className: 'px-2 py-1 bg-gray-800 border border-gray-600 rounded text-white text-xs shadow-md'
+                                });
                             }
                         }
                     }).addTo(map);
@@ -159,6 +164,11 @@ export function useSPCLayer({
                                 className: 'spc-popup',
                                 closeButton: false,
                                 maxWidth: 300
+                            });
+
+                            layer.bindTooltip(`${labelPrefix}: ${threat}%`, {
+                                sticky: true,
+                                className: 'px-2 py-1 bg-gray-800 border border-gray-600 rounded text-white text-xs shadow-md'
                             });
                         }
                     }

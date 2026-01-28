@@ -81,6 +81,11 @@ export function useWSSILayer({
                                     </div>
                                 `;
                                 layer.bindPopup(content, { className: 'spc-popup' }); // Reuse SPC popup style for consistency
+
+                                layer.bindTooltip(`${impact} Impact`, {
+                                    sticky: true,
+                                    className: 'px-2 py-1 bg-gray-800 border border-gray-600 rounded text-white text-xs shadow-md'
+                                });
                             }
                         });
 

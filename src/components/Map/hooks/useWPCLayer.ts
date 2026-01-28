@@ -220,6 +220,12 @@ export function useWPCLayer({
                             popupContent += '</div>';
                             layer.bindPopup(popupContent, { maxWidth: 200 });
 
+                            // Add tooltip
+                            layer.bindTooltip(`${type || 'FEATURE'}`, {
+                                sticky: !(layer instanceof L.Marker || layer instanceof L.CircleMarker), // Sticky for lines/polys
+                                className: 'px-2 py-1 bg-gray-800 border border-gray-600 rounded text-white text-xs shadow-md'
+                            });
+
                             layer.addTo(layerGroup);
                         }
                     });

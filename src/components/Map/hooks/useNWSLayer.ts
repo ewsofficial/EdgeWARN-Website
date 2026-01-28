@@ -353,6 +353,11 @@ export function useNWSLayer({
                         minWidth: 400
                     });
 
+                    layer.bindTooltip(`${props.event}: ${props.headline}`, {
+                        sticky: true,
+                        className: 'px-2 py-1 bg-gray-800 border border-gray-600 rounded text-white text-xs shadow-md'
+                    });
+
                     layer.addTo(nwsLayerRef.current!);
                 }
             } catch (e) {

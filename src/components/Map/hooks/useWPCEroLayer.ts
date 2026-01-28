@@ -87,6 +87,11 @@ export function useWPCEroLayer({
                                 closeButton: false,
                                 maxWidth: 300
                             });
+
+                            layer.bindTooltip(`ERO: ${outlook}`, {
+                                sticky: true,
+                                className: 'px-2 py-1 bg-gray-800 border border-gray-600 rounded text-white text-xs shadow-md'
+                            });
                         }
                     }
                 }).addTo(map);

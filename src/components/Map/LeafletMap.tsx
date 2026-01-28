@@ -372,6 +372,10 @@ export default function LeafletMap() {
                         setFocusedCellId(cell.id);
                     });
 
+                    // Tooltip
+                    const trackId = cell.properties.track_id || cell.id;
+                    polygon.bindTooltip(`Cell ${trackId}`, { sticky: true, className: 'px-2 py-1 bg-gray-800 border border-gray-600 rounded text-white text-xs shadow-md' });
+
                     // Render StormCast Forecast Cones ONLY if focused
                     if (modules && cell.id === focusedCellId) {
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any

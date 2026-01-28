@@ -277,6 +277,12 @@ export function useMETARLayer({
                         maxWidth: 200
                     });
 
+                    marker.bindTooltip(`${entry.station}: ${formatTemp(entry.temperature)}/${formatTemp(entry.dewpoint)}°C ${windStr}`, {
+                        direction: 'top',
+                        offset: [0, -10],
+                        className: 'px-2 py-1 bg-gray-800 border border-gray-600 rounded text-white text-xs shadow-md'
+                    });
+
                     marker.addTo(metarLayerRef.current!);
                 });
                 console.log(`Rendered METAR (Hybrid): Zoom=${currentZoom}, Mode=${useCanvas ? 'Canvas' : 'DOM'}, Visible=${visibleCount}/${entries.length}`);

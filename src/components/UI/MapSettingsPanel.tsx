@@ -64,6 +64,42 @@ function getProductDisplayName(product: string): string {
     return product;
 }
 
+// Layer Descriptions for Tooltips
+const LAYER_DESCRIPTIONS: Record<string, string> = {
+    // SPC
+    'Categorical Outlook': 'SPC Day 1 Convective Outlook: Risks of severe thunderstorms (1-5 scale).',
+    'Tornado Prob.': 'Probability of a tornado within 25 miles of a point.',
+    'Hail Prob.': 'Probability of hail ≥ 1" within 25 miles of a point.',
+    'Wind Prob.': 'Probability of damaging wind gusts ≥ 58 mph within 25 miles.',
+    
+    // WPC
+    'ERO Day 1': 'Excessive Rainfall Outlook Day 1: Risk of rainfall exceeding flash flood guidance.',
+    'ERO Day 2': 'Excessive Rainfall Outlook Day 2: Risk of rainfall exceeding flash flood guidance.',
+    'ERO Day 3': 'Excessive Rainfall Outlook Day 3: Risk of rainfall exceeding flash flood guidance.',
+    
+    // Surface
+    'METAR Stations': 'Real-time surface weather observations (Temp, Dewpoint, Wind) from airports/stations.',
+    'NWS Alerts': 'Official Watches, Warnings, and Advisories issued by the NWS.',
+    'WPC Surface Analysis': 'NWS WPC Surface Analysis: Fronts, Troughs, High/Low Pressure Centers.',
+    
+    // Winter
+    'WSSI Day 1': 'Winter Storm Severity Index Day 1: Potential societal impacts from winter weather.',
+    'WSSI Day 2': 'Winter Storm Severity Index Day 2: Potential societal impacts from winter weather.',
+    'WSSI Day 3': 'Winter Storm Severity Index Day 3: Potential societal impacts from winter weather.',
+};
+
+function getProductDescription(product: string): string {
+    const p = product.toLowerCase();
+    if (p.includes('compref')) return "Composite Reflectivity: Maximum radar echo from all angles.";
+    if (p.includes('rala')) return "Reflectivity at Lowest Altitude: Precipitation intensity near ground.";
+    if (p.includes('preciprate')) return "Estimated instantaneous precipitation rate.";
+    if (p.includes('vil')) return "Vertically Integrated Liquid: Total water content in column (hail indicator).";
+    if (p.includes('echotop')) return "Height of the highest radar echo (storm height).";
+    if (p.includes('vii')) return "Vertically Integrated Ice: Estimated ice content.";
+    if (p.includes('qpe')) return "Quantitative Precipitation Estimation: Estimated rainfall amount.";
+    return "Weather Radar Product";
+}
+
 // Maps product names to Lucide icons
 function getProductIcon(product: string): React.ElementType {
     const p = product.toLowerCase();
@@ -129,15 +165,20 @@ export default function MapSettingsPanel({
         active,
         onToggle,
         colorClass,
-        icon: Icon
+        icon: Icon,
+        description
     }: {
         label: string;
         active: boolean;
         onToggle?: () => void;
         colorClass: string;
         icon?: React.ElementType;
+        description?: string;
     }) => (
-        <div className={`p-3 rounded-lg border transition-all duration-200 ${active ? `bg-${colorClass}-900/20 border-${colorClass}-500/30 shadow-inner` : 'hover:bg-gray-800/50 border-transparent text-gray-400'}`}>
+        <div 
+            title={description || label}
+            className={`p-3 rounded-lg border transition-all duration-200 ${active ? `bg-${colorClass}-900/20 border-${colorClass}-500/30 shadow-inner` : 'hover:bg-gray-800/50 border-transparent text-gray-400'}`}
+        >
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     {Icon ? <Icon size={16} className={active ? `text-${colorClass}-400` : 'text-gray-600'} /> :
@@ -190,6 +231,7 @@ export default function MapSettingsPanel({
                                 active={showSpcOutlook}
                                 onToggle={onToggleSpcOutlook}
                                 colorClass="green"
+                                description={LAYER_DESCRIPTIONS['Categorical Outlook']}
                             />
                             <OverlayItem
                                 label="Tornado Prob."
@@ -197,6 +239,7 @@ export default function MapSettingsPanel({
                                 onToggle={onToggleSpcTornado}
                                 colorClass="red"
                                 icon={Tornado}
+                                description={LAYER_DESCRIPTIONS['Tornado Prob.']}
                             />
                             <OverlayItem
                                 label="Hail Prob."
@@ -204,6 +247,7 @@ export default function MapSettingsPanel({
                                 onToggle={onToggleSpcHail}
                                 colorClass="blue"
                                 icon={CloudHail}
+                                description={LAYER_DESCRIPTIONS['Hail Prob.']}
                             />
                             <OverlayItem
                                 label="Wind Prob."
@@ -211,6 +255,7 @@ export default function MapSettingsPanel({
                                 onToggle={onToggleSpcWind}
                                 colorClass="yellow"
                                 icon={Wind}
+                                description={LAYER_DESCRIPTIONS['Wind Prob.']}
                             />
 
                             <div className="mt-3 px-3 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider border-t border-gray-800 pt-3">WPC Rainfall</div>
@@ -220,6 +265,7 @@ export default function MapSettingsPanel({
                                 onToggle={onToggleWpcEroDay1}
                                 colorClass="emerald"
                                 icon={CloudRain}
+                                description={LAYER_DESCRIPTIONS['ERO Day 1']}
                             />
                             <OverlayItem
                                 label="ERO Day 2"
@@ -227,6 +273,7 @@ export default function MapSettingsPanel({
                                 onToggle={onToggleWpcEroDay2}
                                 colorClass="teal"
                                 icon={CloudRain}
+                                description={LAYER_DESCRIPTIONS['ERO Day 2']}
                             />
                             <OverlayItem
                                 label="ERO Day 3"
@@ -234,6 +281,7 @@ export default function MapSettingsPanel({
                                 onToggle={onToggleWpcEroDay3}
                                 colorClass="cyan"
                                 icon={CloudRain}
+                                description={LAYER_DESCRIPTIONS['ERO Day 3']}
                             />
                         </div>
                     )}
@@ -257,6 +305,7 @@ export default function MapSettingsPanel({
                                 onToggle={onToggleMetar}
                                 colorClass="cyan"
                                 icon={Thermometer}
+                                description={LAYER_DESCRIPTIONS['METAR Stations']}
                             />
                             {showMetar && onChangeMetarDisplayMode && (
                                 <div className="ml-8 mb-2 p-2 bg-gray-900/40 rounded border border-gray-700/50 flex flex-col items-center">
@@ -284,6 +333,7 @@ export default function MapSettingsPanel({
                                 onToggle={onToggleNWSAlerts}
                                 colorClass="amber"
                                 icon={AlertTriangle}
+                                description={LAYER_DESCRIPTIONS['NWS Alerts']}
                             />
                             <OverlayItem
                                 label="WPC Surface Analysis"
@@ -291,6 +341,7 @@ export default function MapSettingsPanel({
                                 onToggle={onToggleWpc}
                                 colorClass="indigo"
                                 icon={Activity}
+                                description={LAYER_DESCRIPTIONS['WPC Surface Analysis']}
                             />
                         </div>
                     )}
@@ -315,6 +366,7 @@ export default function MapSettingsPanel({
                                 onToggle={onToggleWssiDay1}
                                 colorClass="blue"
                                 icon={CloudHail}
+                                description={LAYER_DESCRIPTIONS['WSSI Day 1']}
                             />
                             <OverlayItem
                                 label="WSSI Day 2"
@@ -322,6 +374,7 @@ export default function MapSettingsPanel({
                                 onToggle={onToggleWssiDay2}
                                 colorClass="indigo"
                                 icon={CloudHail}
+                                description={LAYER_DESCRIPTIONS['WSSI Day 2']}
                             />
                             <OverlayItem
                                 label="WSSI Day 3"
@@ -329,6 +382,7 @@ export default function MapSettingsPanel({
                                 onToggle={onToggleWssiDay3}
                                 colorClass="purple"
                                 icon={CloudHail}
+                                description={LAYER_DESCRIPTIONS['WSSI Day 3']}
                             />
                         </div>
                     )}
@@ -355,13 +409,18 @@ export default function MapSettingsPanel({
                                 const isVisible = layerState.visible;
                                 const displayName = getProductDisplayName(product);
                                 const ProductIcon = getProductIcon(product);
+                                const description = getProductDescription(product);
 
                                 return (
-                                    <div key={product} className={`p-3 rounded-lg border transition-all duration-200 ${isVisible ? 'bg-blue-900/20 border-blue-500/30 shadow-inner' : 'hover:bg-gray-800/50 border-transparent text-gray-400'}`}>
+                                    <div 
+                                        key={product} 
+                                        title={description}
+                                        className={`p-3 rounded-lg border transition-all duration-200 ${isVisible ? 'bg-blue-900/20 border-blue-500/30 shadow-inner' : 'hover:bg-gray-800/50 border-transparent text-gray-400'}`}
+                                    >
                                         <div className="flex items-center justify-between mb-2">
                                             <div className="flex items-center gap-3 overflow-hidden">
                                                 <ProductIcon size={16} className={`flex-shrink-0 ${isVisible ? 'text-blue-400' : 'text-gray-600'}`} />
-                                                <span className={`text-sm font-medium truncate pr-2 ${isVisible ? 'text-blue-100' : 'text-gray-400'}`} title={product}>{displayName}</span>
+                                                <span className={`text-sm font-medium truncate pr-2 ${isVisible ? 'text-blue-100' : 'text-gray-400'}`} >{displayName}</span>
                                             </div>
                                             <button
                                                 onClick={() => onLayerToggle(product)}
